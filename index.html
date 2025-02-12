@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Infinite Sudoku</title>
+    <link rel="shortcut icon" type="image/png" href="assets/logo.png" />
+    <meta name="viewport" content="width=device-width, user-scalable=no" />
+    <style>
+        body {
+            text-align: center;
+            font-family: sans-serif;
+            margin: 0;
+        }
+
+        main {
+            padding: 2em;
+            margin: auto;
+            max-width: 40em;
+        }
+
+        #sudoku {
+            display: grid;
+            min-height: 18em;
+            margin: auto;
+            grid-template-columns: repeat(9, 2em);
+            place-items: center;
+            justify-content: center;
+            gap: 0em;
+        }
+
+        #sudoku>div {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            outline: 1px solid #000;
+            width: 2em;
+            height: 2em;
+        }
+
+        canvas {
+            width: 100vw;
+            height: 100vh;
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- TODO: hide main section when playing -->
+    <!-- <main>
+        <h1>Infinite Sudoku*</h1>
+
+    <button>Play</button>
+    </main> -->
+
+    <script src="assets/main.js" type="module"></script>
+
+    <!-- TODO: progress bar for % finished? -->
+
+    <canvas></canvas>
+</body>
+
+</html>
