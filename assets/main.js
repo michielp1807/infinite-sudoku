@@ -7,6 +7,8 @@ const [_, gl] = await Promise.all([init(), glSetup(canvas)]);
 const u_window_resolution = gl.uniform("u_window_resolution", "2fv",
     [window.innerWidth, window.innerHeight]);
 
+const u_mouse_coords = gl.uniform("u_mouse_coords", "2fv", [0, 0]);
+
 const u_number_texture = gl.texture("u_numbers_texture");
 u_number_texture.loadImage("./assets/numbers1024.png", 0)
     .then(() => u_number_texture.activateMipmap());
@@ -175,7 +177,14 @@ resize();
 
 // WebGL draw loop
 function tick() {
+    // map mouse screen coordinates to cell coordinates
+    let bx = (mx - 0.5 * window.innerWidth) * inv_scale + translate[0];
+    let by = (my - 0.5 * window.innerHeight) * inv_scale - translate[1] + 1;
+    u_mouse_coords.set([bx, by]);
+    // TODO: don't change highlighted cell when cell is selected for number input
+
     gl.draw();
+
     requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
