@@ -53,10 +53,13 @@ void main() {
 	// highlight currently hovered sudoku(s)
 	color = mix(color, HIGHLIGHT_COLOR, 0.2 * float(is_hovered_sudoku));
 
-	// highlight hovered row/column
+	// highlight hovered row/column/block
 	vec2 cell_coord = floor(v_uv);
 	vec2 mouse_cell = floor(u_mouse_coords);
-	color = mix(color, HIGHLIGHT_COLOR, 0.4 * float(is_hovered_sudoku && (mouse_cell.x == cell_coord.x || mouse_cell.y == cell_coord.y)));
+	vec2 block = floor(v_uv / 3.0);
+	vec2 mouse_block = floor(u_mouse_coords / 3.0);
+	color = mix(color, HIGHLIGHT_COLOR, 0.4 * float(is_hovered_sudoku &&
+		(mouse_cell.x == cell_coord.x || mouse_cell.y == cell_coord.y || block == mouse_block)));
 
 	// highlight hovered cell
 	color = mix(color, HIGHLIGHT_COLOR, float(mouse_cell == cell_coord));
@@ -75,19 +78,19 @@ void main() {
 	// add cell grid
 	float grid_thickness = 0.01;
 	float grid_opacity = 1.0 - min(1.0, 7.5 * u_inv_scale);
-	vec2 cell = mod(sudoku_uv * 9.0, 1.0);
-	float cell_border = min(1.0 - max(cell.x, cell.y), min(cell.x, cell.y));
+	vec2 cell_uv = mod(sudoku_uv * 9.0, 1.0);
+	float cell_border = min(1.0 - max(cell_uv.x, cell_uv.y), min(cell_uv.x, cell_uv.y));
 	cell_border = smoothstep(grid_thickness + grid_blur, grid_thickness, cell_border);
 	color = mix(color, vec3(0.0), grid_opacity * cell_border);
 
 	// gray background between sudokus
-	color = mix(color, vec3(0.8), float(sudoku_uv.x > 1.0 || sudoku_uv.y > 1.0));
+	color = mix(color, vec3(0.83), float(sudoku_uv.x > 1.0 || sudoku_uv.y > 1.0));
 
 	// add block grid
 	grid_thickness = 0.03;
 	grid_opacity = 1.0 - min(1.0, 10.0 * u_inv_scale);
-	vec2 block = mod(sudoku_uv * 3.0, 1.0);
-	float block_border = 3.0 * min(1.0 - max(block.x, block.y), min(block.x, block.y));
+	vec2 block_uv = mod(sudoku_uv * 3.0, 1.0);
+	float block_border = 3.0 * min(1.0 - max(block_uv.x, block_uv.y), min(block_uv.x, block_uv.y));
 	block_border = smoothstep(grid_thickness + grid_blur, grid_thickness, block_border);
 	color = mix(color, vec3(0.0), grid_opacity * block_border);
 
