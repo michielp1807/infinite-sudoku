@@ -70,8 +70,9 @@ void main() {
 	num_uv += vec2(THIRD * mod(float(number - 1), 3.0), THIRD * float((number - 1) / 3));
 
 	vec4 num = texture2D(u_numbers_texture, num_uv);
-	float num_normal = num.r;
+	float num_bolder = num.r;
 	float num_bold = num.g;
+	float num_normal = num.b;
 
 	color = mix(color, vec3(0.0), num_normal * float(number > 0 && number <= 9));
 
