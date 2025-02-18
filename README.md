@@ -1,4 +1,6 @@
 # Infinite Sudoku
+An infinite sudoku, solvable in a finite amount of time!
+
 Play at: https://michielp1807.github.io/infinite-sudoku
 
 Build wasm binary with:
