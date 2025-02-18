@@ -66,7 +66,8 @@ void main() {
 
 	// add number in cell
 	int number = int(255.0 * texture2D(u_sudoku, sudoku_uv));
-	vec2 num_uv = mod(v_uv, 1.0) * THIRD;
+	vec2 block_uv = (mod(v_uv / 3.0, 1.0) - 0.5) * 1.01 + 0.5; // slightly scale down blocks to account for thicker border
+	vec2 num_uv = mod(block_uv * 3.0, 1.0) * THIRD;
 	num_uv += vec2(THIRD * mod(float(number - 1), 3.0), THIRD * float((number - 1) / 3));
 
 	vec4 num = texture2D(u_numbers_texture, num_uv);
@@ -90,7 +91,7 @@ void main() {
 	// add block grid
 	grid_thickness = 0.03;
 	grid_opacity = 1.0 - min(1.0, 10.0 * u_inv_scale);
-	vec2 block_uv = mod(sudoku_uv * 3.0, 1.0);
+	block_uv = mod(sudoku_uv * 3.0, 1.0);
 	float block_border = 3.0 * min(1.0 - max(block_uv.x, block_uv.y), min(block_uv.x, block_uv.y));
 	block_border = smoothstep(grid_thickness + grid_blur, grid_thickness, block_border);
 	color = mix(color, vec3(0.0), grid_opacity * block_border);
