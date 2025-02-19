@@ -15,6 +15,18 @@ pub fn random_int(max: usize) -> usize {
     ((max as f64) * random()) as usize
 }
 
+/// Get randomly shuffled 1..=9
+pub fn random_sequence() -> impl Iterator<Item = u8> {
+    let mut values: Vec<u8> = (1..=9).collect();
+    (0..9).map(move |_| {
+        if values.len() > 1 {
+            values.swap_remove(random_int(values.len()))
+        } else {
+            values[0]
+        }
+    })
+}
+
 /// Generate a solved sudoku based on random input data
 #[wasm_bindgen]
 pub fn generate() -> Box<[u8]> {
@@ -22,38 +34,18 @@ pub fn generate() -> Box<[u8]> {
 
     let mut s = Sudoku::new_empty();
 
-    // add some random numbers to randomize the sudoku
-    // let mut i = 0;
-    // while i < 36 {
-    //     let r = random_int(9) + 1;
-    //     s[i] = r;
-    //     while s.cell_is_problematic(i) {
-    //         s[i] = (s[i] % 9) + 1;
-    //         if s[i] == r {
-    //             log("Oops! This is impossible...");
-    //             return generate();
-    //         }
-    //     }
-    //     i += 1;
-    // }
-
     // randomly fill first block
-    let mut values: Vec<u8> = (1..=9).collect();
-    for i in s.block(0).indexes() {
-        s[i] = values.swap_remove(random_int(values.len()));
+    for (i, v) in s.block(0).indexes().zip(random_sequence()) {
+        s[i] = v;
     }
 
     // set opposite block to same numbers
-    let values: Vec<u8> = s.block(0).values().map(|v| *v).collect();
-    for (i, index) in s.block(8).indexes().enumerate() {
-        s[index] = values[i];
+    for (i, j) in s.block(8).indexes().zip(s.block(0).indexes()) {
+        s[i] = s[j];
     }
 
     // randomly fill second block while satisfying constraints
-    let mut values: Vec<u8> = (1..=9).collect();
-    let values: Vec<u8> = (0..9)
-        .map(|_| values.swap_remove(random_int(values.len())))
-        .collect(); // randomly shuffled 1..=9
+    let values = random_sequence().collect::<Vec<u8>>();
     let mut vi = [0usize; 9]; // value index (which random value is it using?)
     let indexes: Vec<usize> = s.block(2).indexes().collect();
     let mut i = 0;
@@ -83,10 +75,9 @@ pub fn generate() -> Box<[u8]> {
         }
     }
 
-    // set opposite block to same numbers (I think we can assume constraints to hold here?)
-    let values: Vec<u8> = s.block(2).values().map(|v| *v).collect();
-    for (i, index) in s.block(6).indexes().enumerate() {
-        s[index] = values[i];
+    // set opposite block to same numbers (we can assume constraints hold here)
+    for (i, j) in s.block(6).indexes().zip(s.block(2).indexes()) {
+        s[i] = s[j];
     }
 
     log(format!("{:?}", s).as_str());
