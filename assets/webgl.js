@@ -143,8 +143,6 @@ export default async function glSetup(canvas) {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
 
-            gl.bindTexture(gl.TEXTURE_2D, texture);
-
             this.uniform(sampler_name, "1i", index);
 
             const channelsPerFormat = {
@@ -162,7 +160,6 @@ export default async function glSetup(canvas) {
                  */
                 setSource(source, level = 0, format = gl.RGBA) {
                     gl.activeTexture(gl.TEXTURE0 + index);
-                    gl.bindTexture(gl.TEXTURE_2D, texture);
                     gl.texImage2D(gl.TEXTURE_2D, level, format, format, gl.UNSIGNED_BYTE, source);
                 },
                 /**
@@ -174,7 +171,6 @@ export default async function glSetup(canvas) {
                 setSourceArray(data, width, height, format = gl.RGBA) {
                     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1); // otherwise WebGL expects rows to be multiples of 4 bytes
                     gl.activeTexture(gl.TEXTURE0 + index);
-                    gl.bindTexture(gl.TEXTURE_2D, texture);
                     gl.texImage2D(gl.TEXTURE_2D, 0, format, width, height, 0, format, gl.UNSIGNED_BYTE, data);
                 },
                 /**
@@ -194,6 +190,7 @@ export default async function glSetup(canvas) {
 
                 },
                 activateMipmap() {
+                    gl.activeTexture(gl.TEXTURE0 + index);
                     gl.generateMipmap(gl.TEXTURE_2D);
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
 
@@ -207,7 +204,6 @@ export default async function glSetup(canvas) {
                 setPixel(x, y, color) {
                     const colorArray = new Uint8Array(color);
                     gl.activeTexture(gl.TEXTURE0 + index);
-                    gl.bindTexture(gl.TEXTURE_2D, texture);
                     gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, colorArray);
                 }
             };

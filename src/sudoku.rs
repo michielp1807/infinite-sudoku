@@ -20,29 +20,16 @@ impl<'a, T: Iterator<Item = usize>> Region<'a, T> {
     }
 
     /// Check if region contains the numbers 1 to 9 (assuming the sequence is 9 long)
-    pub fn validate(self) -> bool {
-        let mut seen: u16 = 0; // bitmap of seen values
-        for i in self.1 {
-            let v = self.0[i];
-            if v == 0 || v > 9 || seen & (2 << v) > 0 {
-                return false;
-            }
-            seen |= 2 << v;
-        }
-        true
-    }
-
-    /// Check if region contains the numbers 1 to 9 (assuming the sequence is 9 long)
     ///
-    /// Ignores empty (0) cells
-    pub fn partial_validate(self) -> bool {
+    /// Ignores empty (0) cells if partial is true
+    pub fn validate(self, partial: bool) -> bool {
         let mut seen: u16 = 0; // bitmap of seen values
         for i in self.1 {
             let v = self.0[i];
-            if v == 0 {
+            if partial && v == 0 {
                 continue;
             }
-            if v > 9 || seen & (2 << v) > 0 {
+            if v == 0 || v > 9 || seen & (2 << v) > 0 {
                 return false;
             }
             seen |= 2 << v;
@@ -95,17 +82,17 @@ impl Sudoku {
     /// Check if sudoku is solved correctly
     pub fn is_solved(&self) -> bool {
         // row constraint
-        if !(0..9).all(|i| self.row(i).validate()) {
+        if !(0..9).all(|i| self.row(i).validate(false)) {
             return false;
         }
 
         // column constraint
-        if !(0..9).all(|i| self.column(i).validate()) {
+        if !(0..9).all(|i| self.column(i).validate(false)) {
             return false;
         }
 
         // block constraint
-        if !(0..9).all(|i| self.block(i).validate()) {
+        if !(0..9).all(|i| self.block(i).validate(false)) {
             return false;
         }
 
@@ -115,17 +102,17 @@ impl Sudoku {
     /// Check if the cell at index i is problematic
     pub fn cell_is_problematic(&self, i: usize) -> bool {
         let row = i / 9;
-        if !self.row(row).partial_validate() {
+        if !self.row(row).validate(true) {
             return true;
         }
 
         let column = i % 9;
-        if !self.column(column).partial_validate() {
+        if !self.column(column).validate(true) {
             return true;
         }
 
         let block = column / 3 + 3 * (row / 3);
-        if !self.block(block).partial_validate() {
+        if !self.block(block).validate(true) {
             return true;
         }
 
@@ -295,13 +282,13 @@ mod tests {
     #[test]
     fn validate_region() {
         let s = Sudoku(std::array::from_fn(|i| i as u8)); // 0..81
-        assert!(Region(&s, [1, 2, 3, 4, 5, 6, 7, 8, 9].into_iter()).validate());
-        assert!(Region(&s, [9, 6, 3, 8, 5, 2, 7, 4, 1].into_iter()).validate());
-        assert!(!Region(&s, [1, 2, 3, 4, 5, 6, 7, 0, 9].into_iter()).validate());
-        assert!(!Region(&s, [1, 2, 3, 4, 5, 6, 7, 10, 9].into_iter()).validate());
-        assert!(!Region(&s, [1, 2, 2, 4, 5, 6, 7, 8, 9].into_iter()).validate());
-        assert!(!Region(&s, [1, 2, 3, 4, 5, 6, 7, 9, 9].into_iter()).validate());
-        assert!(!Region(&s, [1, 2, 3, 4, 5, 6, 7, 8, 1].into_iter()).validate());
+        assert!(Region(&s, [1, 2, 3, 4, 5, 6, 7, 8, 9].into_iter()).validate(false));
+        assert!(Region(&s, [9, 6, 3, 8, 5, 2, 7, 4, 1].into_iter()).validate(false));
+        assert!(!Region(&s, [1, 2, 3, 4, 5, 6, 7, 0, 9].into_iter()).validate(false));
+        assert!(!Region(&s, [1, 2, 3, 4, 5, 6, 7, 10, 9].into_iter()).validate(false));
+        assert!(!Region(&s, [1, 2, 2, 4, 5, 6, 7, 8, 9].into_iter()).validate(false));
+        assert!(!Region(&s, [1, 2, 3, 4, 5, 6, 7, 9, 9].into_iter()).validate(false));
+        assert!(!Region(&s, [1, 2, 3, 4, 5, 6, 7, 8, 1].into_iter()).validate(false));
     }
 
     #[test]
@@ -353,20 +340,22 @@ mod tests {
     #[test]
     fn partial_validate_region() {
         let s = Sudoku(std::array::from_fn(|i| i as u8)); // 0..81
-        assert!(Region(&s, [1, 2, 3, 4, 5, 6, 7, 8, 9].into_iter()).partial_validate());
-        assert!(Region(&s, [9, 6, 3, 8, 5, 2, 7, 4, 1].into_iter()).partial_validate());
-        assert!(Region(&s, [0, 0, 0, 0, 0, 0, 0, 0, 0].into_iter()).partial_validate());
-        assert!(Region(&s, [0, 1, 0, 0, 0, 0, 6, 0, 0].into_iter()).partial_validate());
-        assert!(Region(&s, [1, 2, 3, 4, 5, 6, 7, 0, 9].into_iter()).partial_validate());
-        assert!(!Region(&s, [1, 2, 3, 4, 5, 6, 7, 10, 9].into_iter()).partial_validate());
-        assert!(!Region(&s, [1, 2, 2, 4, 5, 6, 7, 8, 9].into_iter()).partial_validate());
-        assert!(!Region(&s, [1, 2, 3, 4, 5, 6, 7, 9, 9].into_iter()).partial_validate());
-        assert!(!Region(&s, [1, 2, 3, 4, 5, 6, 7, 8, 1].into_iter()).partial_validate());
+        assert!(Region(&s, [1, 2, 3, 4, 5, 6, 7, 8, 9].into_iter()).validate(true));
+        assert!(Region(&s, [9, 6, 3, 8, 5, 2, 7, 4, 1].into_iter()).validate(true));
+        assert!(Region(&s, [0, 0, 0, 0, 0, 0, 0, 0, 0].into_iter()).validate(true));
+        assert!(Region(&s, [0, 1, 0, 0, 0, 0, 6, 0, 0].into_iter()).validate(true));
+        assert!(Region(&s, [1, 2, 3, 4, 5, 6, 7, 0, 9].into_iter()).validate(true));
+        assert!(!Region(&s, [1, 2, 3, 4, 5, 6, 7, 10, 9].into_iter()).validate(true));
+        assert!(!Region(&s, [1, 2, 2, 4, 5, 6, 7, 8, 9].into_iter()).validate(true));
+        assert!(!Region(&s, [1, 2, 3, 4, 5, 6, 7, 9, 9].into_iter()).validate(true));
+        assert!(!Region(&s, [1, 2, 3, 4, 5, 6, 7, 8, 1].into_iter()).validate(true));
     }
 
     #[test]
     fn solve() {
         let mut s = Sudoku::new_empty();
+        assert!(!s.is_solved());
         s.solve().unwrap();
+        assert!(s.is_solved());
     }
 }
