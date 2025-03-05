@@ -160,9 +160,26 @@ impl Sudoku {
 
 impl std::fmt::Debug for Sudoku {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        writeln!(f, "┌───────┬───────┬───────┐")?;
         for i in 0..9 {
-            writeln!(f, "{:?}", self.row(i).values().collect::<Vec<_>>())?;
+            write!(f, "│ ")?;
+            for (j, v) in self.row(i).values().enumerate() {
+                let spaces = if j == 8 {
+                    " │"
+                } else if j % 3 == 2 {
+                    " │ "
+                } else {
+                    " "
+                };
+                write!(f, "{}{}", v, spaces)?;
+            }
+            if i % 3 == 2 && i < 8 {
+                writeln!(f, "\n├───────┼───────┼───────┤")?;
+            } else {
+                writeln!(f, "")?;
+            }
         }
+        writeln!(f, "└───────┴───────┴───────┘")?;
         Ok(())
     }
 }
