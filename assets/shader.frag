@@ -8,6 +8,7 @@ uniform vec2 u_mouse_coords;
 uniform sampler2D u_numbers_texture;
 uniform sampler2D u_sudoku;
 uniform float u_inv_scale;
+uniform vec2 u_world_size;
 
 const float THIRD = 1.0 / 3.0;
 const float TWO_THIRD = 2.0 / 3.0;
@@ -30,6 +31,12 @@ vec2 get_other_sudoku_coord(vec2 sudoku_coord, vec2 sudoku_uv) {
 	other_sudoku_coord.y -= float(sudoku_uv.x < THIRD && sudoku_uv.y < THIRD);
 	other_sudoku_coord.y += float(sudoku_uv.x > TWO_THIRD && sudoku_uv.y > TWO_THIRD);
 	return other_sudoku_coord;
+}
+
+// prevent floating point errors by rounding values
+vec2 rounded_mod(vec2 a, vec2 b) {
+	vec2 m = a - floor((a + 0.5) / b) * b;
+	return floor(m + 0.5);
 }
 
 void main() {
@@ -65,7 +72,11 @@ void main() {
 	color = mix(color, HIGHLIGHT_COLOR, float(mouse_cell == cell_coord));
 
 	// add number in cell
-	int number = int(255.0 * texture2D(u_sudoku, sudoku_uv));
+	sudoku_coord = rounded_mod(sudoku_coord, u_world_size);
+	vec2 uv = sudoku_uv;
+	uv.y += sudoku_coord.x + sudoku_coord.y * u_world_size.x;
+	uv.y /= u_world_size.x * u_world_size.y;
+	int number = int(255.0 * texture2D(u_sudoku, uv));
 	vec2 block_uv = (mod(v_uv / 3.0, 1.0) - 0.5) * 1.01 + 0.5; // slightly scale down blocks to account for thicker border
 	vec2 num_uv = mod(block_uv * 3.0, 1.0) * THIRD;
 	num_uv += vec2(THIRD * mod(float(number - 1), 3.0), THIRD * float((number - 1) / 3));
@@ -75,6 +86,7 @@ void main() {
 	float num_bold = num.g;
 	float num_normal = num.b;
 
+	// color = mix(color, vec3(sudoku_coord / u_world_size, 0.0), 0.5);
 	color = mix(color, vec3(0.0), num_normal * float(number > 0 && number <= 9));
 
 	// add cell grid

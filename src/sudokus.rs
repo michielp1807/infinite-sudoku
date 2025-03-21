@@ -1,0 +1,677 @@
+#![allow(dead_code)] // for development, go away annoying squiggly lines
+
+/// Bitmap of seen values
+struct Seen(u16);
+
+impl Seen {
+    fn new() -> Self {
+        Seen(0)
+    }
+
+    fn contains(&self, value: u8) -> bool {
+        self.0 & (1 << value) > 0
+    }
+
+    fn add(&mut self, value: u8) {
+        debug_assert!(value < 16);
+        self.0 |= 1 << value;
+    }
+}
+
+/// A row, column, or block, described by a list of its 9 indexes
+pub struct Region<'a, T: Iterator<Item = usize>>(&'a SudokuGrid, T);
+
+impl<'a, T: Iterator<Item = usize>> Region<'a, T> {
+    pub fn values(self) -> impl Iterator<Item = &'a u8> {
+        self.1.map(|i| &self.0.cells[i])
+    }
+
+    pub fn indexes(self) -> impl Iterator<Item = usize> {
+        self.1
+    }
+
+    /// Check if region contains the numbers 1 to 9 (assuming the sequence is 9 long)
+    ///
+    /// Ignores empty (0) cells if partial is true
+    pub fn validate(self, partial: bool) -> bool {
+        let mut seen = Seen::new();
+        for i in self.1 {
+            let value = self.0.cells[i];
+            if partial && value == 0 {
+                continue;
+            }
+            if value == 0 || value > 9 || seen.contains(value) {
+                return false;
+            }
+            seen.add(value);
+        }
+        true
+    }
+}
+
+#[derive(Debug)]
+pub struct Sudoku {
+    block_start: [usize; 9],
+    x: usize,
+    y: usize,
+}
+
+impl Sudoku {
+    fn indexes(&self) -> impl Iterator<Item = usize> + use<'_> {
+        let block_order = [
+            BOTTOM_LEFT_BLOCK,
+            BOTTOM_RIGHT_BLOCK,
+            TOP_LEFT_BLOCK,
+            TOP_RIGHT_BLOCK,
+            MIDDLE_CENTER_BLOCK,
+            BOTTOM_CENTER_BLOCK,
+            TOP_CENTER_BLOCK,
+            MIDDLE_LEFT_BLOCK,
+            MIDDLE_RIGHT_BLOCK,
+        ];
+        block_order
+            .into_iter()
+            .map(|b| self.block_start[b])
+            .flat_map(|b| b..(b + 9))
+    }
+}
+
+// block indexes
+pub const TOP_LEFT_BLOCK: usize = 0;
+pub const TOP_CENTER_BLOCK: usize = 1;
+pub const TOP_RIGHT_BLOCK: usize = 2;
+pub const MIDDLE_LEFT_BLOCK: usize = 3;
+pub const MIDDLE_CENTER_BLOCK: usize = 4;
+pub const MIDDLE_RIGHT_BLOCK: usize = 5;
+pub const BOTTOM_LEFT_BLOCK: usize = 6;
+pub const BOTTOM_CENTER_BLOCK: usize = 7;
+pub const BOTTOM_RIGHT_BLOCK: usize = 8;
+
+pub struct SudokuGrid {
+    /// Stores all cells without overlap (so 7 * 9 cells per sudoku)
+    pub cells: Box<[u8]>,
+    n: usize,
+    m: usize,
+}
+
+#[derive(Debug)]
+pub struct NoSolution;
+
+impl SudokuGrid {
+    pub fn new(n: usize, m: usize) -> Self {
+        SudokuGrid {
+            cells: vec![0; 7 * 9 * n * m].into(),
+            n,
+            m,
+        }
+    }
+
+    pub fn sudoku(&self, x: usize, y: usize) -> Sudoku {
+        debug_assert!(x < self.n && y < self.m);
+        let this_start = (x + y * self.n) * 7 * 9;
+        Sudoku {
+            block_start: [
+                (x + ((y + 1) % self.m) * self.n) * 7 * 9 + 6 * 9,
+                this_start,
+                (((x + 1) % self.n) + y * self.n) * 7 * 9 + 4 * 9,
+                this_start + 1 * 9,
+                this_start + 2 * 9,
+                this_start + 3 * 9,
+                this_start + 4 * 9,
+                this_start + 5 * 9,
+                this_start + 6 * 9,
+            ],
+            x,
+            y,
+        }
+    }
+
+    /// Loop over sudoku rows (for export to send to WebGL)
+    /// TODO: update WebGL shader to use the original cell data format directly?
+    pub fn sudoku_rows(&self) -> impl Iterator<Item = u8> + use<'_> {
+        let x = 0..self.n;
+        let y = (0..self.m).rev();
+        y.flat_map(move |y| x.clone().map(move |x| self.sudoku(x, y)))
+            .flat_map(move |s| (0..9).flat_map(move |y| self.row(&s, y).values().copied()))
+    }
+
+    pub fn block(&self, sudoku: &Sudoku, i: usize) -> Region<impl Iterator<Item = usize>> {
+        debug_assert!(i < 9, "block index out of bounds");
+        let start = sudoku.block_start[i];
+        Region(self, start..(start + 9))
+    }
+
+    pub fn row(&self, sudoku: &Sudoku, y: usize) -> Region<impl Iterator<Item = usize>> {
+        debug_assert!(y < 9, "row index out of bounds");
+        let first_block = (y / 3) * 3;
+        let blocks = [
+            sudoku.block_start[first_block],
+            sudoku.block_start[first_block + 1],
+            sudoku.block_start[first_block + 2],
+        ];
+        let first_offset = (y % 3) * 3;
+        let offsets = [first_offset, first_offset + 1, first_offset + 2];
+        Region(
+            self,
+            blocks
+                .into_iter()
+                .map(move |b| offsets.into_iter().map(move |o| o + b))
+                .flatten(),
+        )
+    }
+
+    pub fn column(&self, sudoku: &Sudoku, x: usize) -> Region<impl Iterator<Item = usize>> {
+        debug_assert!(x < 9, "column index out of bounds");
+        let first_block = x / 3;
+        let blocks = [
+            sudoku.block_start[first_block],
+            sudoku.block_start[first_block + 3],
+            sudoku.block_start[first_block + 6],
+        ];
+        let first_offset = x % 3;
+        let offsets = [first_offset, first_offset + 3, first_offset + 6];
+        Region(
+            self,
+            blocks
+                .into_iter()
+                .map(move |b| offsets.into_iter().map(move |o| o + b))
+                .flatten(),
+        )
+    }
+
+    pub fn block_index_for(&self, sudoku: &Sudoku, i: usize) -> usize {
+        for (block, start) in sudoku.block_start.iter().enumerate() {
+            if i >= *start && i < start + 9 {
+                return block;
+            }
+        }
+        panic!("Index {i} not found in sudoku {sudoku:?}");
+    }
+
+    /// Get row for cell index
+    pub fn row_for(&self, sudoku: &Sudoku, i: usize) -> Region<impl Iterator<Item = usize>> {
+        let block = self.block_index_for(&sudoku, i);
+        let row = (i % 9) / 3 + block / 3 * 3;
+        self.row(sudoku, row)
+    }
+
+    /// Get column for cell index
+    pub fn column_for(&self, sudoku: &Sudoku, i: usize) -> Region<impl Iterator<Item = usize>> {
+        let block = self.block_index_for(&sudoku, i);
+        let column = i % 3 + (block % 3) * 3;
+        self.column(sudoku, column)
+    }
+
+    /// Get block for cell index
+    pub fn block_for(&self, sudoku: &Sudoku, i: usize) -> Region<impl Iterator<Item = usize>> {
+        self.block(&sudoku, self.block_index_for(&sudoku, i))
+    }
+
+    pub fn set_block(&mut self, sudoku: &Sudoku, i: usize, values: impl Iterator<Item = u8>) {
+        for (i, v) in self.block(sudoku, i).indexes().zip(values) {
+            self.cells[i] = v;
+        }
+    }
+
+    pub fn depth_first_solve_block(
+        &mut self,
+        sudoku: &Sudoku,
+        i: usize,
+        random: Box<[u8]>,
+    ) -> Result<u64, NoSolution> {
+        let indexes = self.block(&sudoku, i).indexes().collect::<Vec<_>>();
+
+        let other_sudoku = match i {
+            TOP_LEFT_BLOCK => Some(self.sudoku(sudoku.x, (sudoku.y + 1) % self.m)),
+            TOP_RIGHT_BLOCK => Some(self.sudoku((sudoku.x + 1) % self.n, sudoku.y)),
+            BOTTOM_LEFT_BLOCK => Some(self.sudoku((sudoku.x + self.n - 1) % self.n, sudoku.y)),
+            BOTTOM_RIGHT_BLOCK => Some(self.sudoku(sudoku.x, (sudoku.y + self.m - 1) % self.m)),
+            _ => None,
+        };
+
+        let mut vi = [0usize; 9]; // value index (which random value is it using?)
+
+        let mut backtracks: u64 = 0;
+        let mut i = 0;
+        while i < 9 {
+            let index = indexes[i];
+            self.cells[index] = random[vi[i]];
+
+            while (self.cell_is_problematic(&sudoku, index)
+                || other_sudoku
+                    .as_ref()
+                    .map_or(false, |s| self.cell_is_problematic(&s, index)))
+                && vi[i] < 8
+            {
+                vi[i] += 1;
+                self.cells[index] = random[vi[i]];
+            }
+
+            if self.cell_is_problematic(&sudoku, index)
+                || other_sudoku
+                    .as_ref()
+                    .map_or(false, |s| self.cell_is_problematic(&s, index))
+            {
+                // there is no solution, we should backtrack
+                backtracks += 1;
+                while vi[i] == 8 {
+                    self.cells[indexes[i]] = 0;
+                    vi[i] = 0;
+                    if i == 0 {
+                        return Err(NoSolution);
+                    }
+                    i -= 1;
+                }
+                vi[i] += 1;
+            } else {
+                // let's try and see if this works
+                i += 1;
+            }
+        }
+        Ok(backtracks)
+    }
+
+    /// Check if sudoku is solved correctly
+    pub fn is_solved(&self, sudoku: &Sudoku) -> bool {
+        // row constraint
+        if !(0..9).all(|i| self.row(&sudoku, i).validate(false)) {
+            return false;
+        }
+
+        // column constraint
+        if !(0..9).all(|i| self.column(&sudoku, i).validate(false)) {
+            return false;
+        }
+
+        // block constraint
+        if !(0..9).all(|i| self.block(&sudoku, i).validate(false)) {
+            return false;
+        }
+
+        true
+    }
+
+    /// Check if the cell at index i is problematic
+    pub fn cell_is_problematic(&self, sudoku: &Sudoku, i: usize) -> bool {
+        !self.row_for(sudoku, i).validate(true)
+            || !self.column_for(sudoku, i).validate(true)
+            || !self.block_for(sudoku, i).validate(true)
+    }
+
+    /// Solve a sudoku with depth-first search
+    /// (only changes cells containing zeros)
+    ///
+    /// Returns Err if no solution is found
+    pub fn depth_first_solve(&mut self, sudoku: &Sudoku) -> Result<u64, NoSolution> {
+        let mut guesses = Vec::new();
+        let mut i = 0;
+        let mut ignore_non_zero = true;
+        let mut backtracks: u64 = 0;
+
+        let indexes = sudoku
+            .indexes()
+            .filter(|i| self.cells[*i] == 0)
+            .collect::<Box<[_]>>();
+
+        while i < indexes.len() {
+            if ignore_non_zero && self.cells[indexes[i]] > 0 {
+                // already filled, ignore this cell
+                i += 1;
+                continue;
+            }
+
+            // we will guess a value for this index
+            self.cells[indexes[i]] += 1;
+            while self.cells[indexes[i]] < 9 && self.cell_is_problematic(sudoku, indexes[i]) {
+                self.cells[indexes[i]] += 1
+            }
+
+            if self.cell_is_problematic(sudoku, indexes[i]) {
+                // there is no solution, we should backtrack
+                backtracks += 1;
+                while self.cells[indexes[i]] == 9 {
+                    self.cells[indexes[i]] = 0;
+                    i = guesses.pop().ok_or(NoSolution)?;
+                    ignore_non_zero = false;
+                }
+            } else {
+                // let's try and see if this works
+                guesses.push(i);
+                i += 1;
+                ignore_non_zero = true;
+            }
+        }
+
+        Ok(backtracks)
+    }
+
+    pub fn solve_trivial_regions(&mut self, sudoku: &Sudoku) {
+        let mut unsolved_regions = Vec::<Vec<usize>>::new();
+        for i in 0..9 {
+            unsolved_regions.push(self.row(&sudoku, i).indexes().collect());
+            unsolved_regions.push(self.column(&sudoku, i).indexes().collect());
+            unsolved_regions.push(self.block(&sudoku, i).indexes().collect());
+        }
+
+        let mut has_changed = true;
+        while has_changed {
+            has_changed = false;
+
+            unsolved_regions.retain(|indexes| {
+                let mut seen = Seen::new();
+                let mut empties = 0;
+                for i in indexes {
+                    let value = self.cells[*i];
+                    seen.add(value);
+                    if value == 0 {
+                        empties += 1;
+                    }
+                }
+
+                if empties == 1 {
+                    // get last missing value in region
+                    let mut missing = 0;
+                    for v in 1..=9 {
+                        if !seen.contains(v) {
+                            missing = v;
+                            break;
+                        }
+                    }
+                    // and put it in the empty spot
+                    for i in indexes {
+                        if self.cells[*i] == 0 {
+                            self.cells[*i] = missing;
+                            has_changed = true;
+                            return false; // remove region because it is done
+                        }
+                    }
+                }
+
+                empties > 0 // keep regions with empty spots
+            });
+        }
+    }
+}
+
+impl std::fmt::Debug for SudokuGrid {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        for x in 0..self.n {
+            for y in 0..self.m {
+                let s = self.sudoku(x, y);
+                writeln!(f, "Sudoku ({x}, {y}):")?;
+                writeln!(f, "┌───────┬───────┬───────┐")?;
+                for i in 0..9 {
+                    write!(f, "│ ")?;
+                    for (j, v) in self.row(&s, i).values().enumerate() {
+                        let spaces = if j == 8 {
+                            " │"
+                        } else if j % 3 == 2 {
+                            " │ "
+                        } else {
+                            " "
+                        };
+                        write!(f, "{}{}", v, spaces)?;
+                    }
+                    if i % 3 == 2 && i < 8 {
+                        writeln!(f, "\n├───────┼───────┼───────┤")?;
+                    } else {
+                        writeln!(f, "")?;
+                    }
+                }
+                writeln!(f, "└───────┴───────┴───────┘")?;
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn grid_overlap_1x1() {
+        let sg = SudokuGrid::new(1, 1);
+        assert_eq!(
+            sg.sudoku(0, 0).block_start[TOP_LEFT_BLOCK],
+            sg.sudoku(0, 0).block_start[BOTTOM_RIGHT_BLOCK]
+        );
+        assert_eq!(
+            sg.sudoku(0, 0).block_start[TOP_RIGHT_BLOCK],
+            sg.sudoku(0, 0).block_start[BOTTOM_LEFT_BLOCK]
+        );
+    }
+
+    #[test]
+    fn grid_overlap_2x2() {
+        let sg = SudokuGrid::new(2, 2);
+        assert_eq!(
+            sg.sudoku(0, 0).block_start[TOP_LEFT_BLOCK],
+            sg.sudoku(0, 1).block_start[BOTTOM_RIGHT_BLOCK]
+        );
+        assert_eq!(
+            sg.sudoku(0, 0).block_start[TOP_RIGHT_BLOCK],
+            sg.sudoku(1, 0).block_start[BOTTOM_LEFT_BLOCK]
+        );
+        assert_eq!(
+            sg.sudoku(0, 0).block_start[BOTTOM_LEFT_BLOCK],
+            sg.sudoku(1, 0).block_start[TOP_RIGHT_BLOCK]
+        );
+        assert_eq!(
+            sg.sudoku(0, 0).block_start[BOTTOM_RIGHT_BLOCK],
+            sg.sudoku(0, 1).block_start[TOP_LEFT_BLOCK]
+        );
+    }
+
+    #[test]
+    fn grid_overlap_3x3() {
+        let sg = SudokuGrid::new(3, 3);
+        assert_eq!(
+            sg.sudoku(0, 0).block_start[TOP_LEFT_BLOCK],
+            sg.sudoku(0, 1).block_start[BOTTOM_RIGHT_BLOCK]
+        );
+        assert_eq!(
+            sg.sudoku(0, 0).block_start[TOP_RIGHT_BLOCK],
+            sg.sudoku(1, 0).block_start[BOTTOM_LEFT_BLOCK]
+        );
+        assert_eq!(
+            sg.sudoku(0, 0).block_start[BOTTOM_LEFT_BLOCK],
+            sg.sudoku(2, 0).block_start[TOP_RIGHT_BLOCK]
+        );
+        assert_eq!(
+            sg.sudoku(0, 0).block_start[BOTTOM_RIGHT_BLOCK],
+            sg.sudoku(0, 2).block_start[TOP_LEFT_BLOCK]
+        );
+    }
+
+    #[test]
+    fn get_block_row_column_values() {
+        let mut sg = SudokuGrid::new(1, 1);
+        sg.cells = vec![
+            11, 12, 13, 14, 15, 16, 17, 18, 19, // top center block
+            21, 22, 23, 24, 25, 26, 27, 28, 29, // middle left block
+            31, 32, 33, 34, 35, 36, 37, 38, 39, // middle center block
+            41, 42, 43, 44, 45, 46, 47, 48, 49, // middle right block
+            51, 52, 53, 54, 55, 56, 57, 58, 59, // bottom left block
+            61, 62, 63, 64, 65, 66, 67, 68, 69, // bottom center block
+            71, 72, 73, 74, 75, 76, 77, 78, 79, // bottom right block
+        ]
+        .into();
+        let s = sg.sudoku(0, 0);
+
+        // blocks
+        assert_eq!(
+            sg.block(&s, TOP_LEFT_BLOCK)
+                .values()
+                .copied()
+                .collect::<Vec<_>>(),
+            [71, 72, 73, 74, 75, 76, 77, 78, 79]
+        );
+        assert_eq!(
+            sg.block(&s, TOP_CENTER_BLOCK)
+                .values()
+                .copied()
+                .collect::<Vec<_>>(),
+            [11, 12, 13, 14, 15, 16, 17, 18, 19]
+        );
+        assert_eq!(
+            sg.block(&s, TOP_RIGHT_BLOCK)
+                .values()
+                .copied()
+                .collect::<Vec<_>>(),
+            [51, 52, 53, 54, 55, 56, 57, 58, 59]
+        );
+        assert_eq!(
+            sg.block(&s, MIDDLE_LEFT_BLOCK)
+                .values()
+                .copied()
+                .collect::<Vec<_>>(),
+            [21, 22, 23, 24, 25, 26, 27, 28, 29]
+        );
+        assert_eq!(
+            sg.block(&s, MIDDLE_CENTER_BLOCK)
+                .values()
+                .copied()
+                .collect::<Vec<_>>(),
+            [31, 32, 33, 34, 35, 36, 37, 38, 39]
+        );
+        assert_eq!(
+            sg.block(&s, MIDDLE_RIGHT_BLOCK)
+                .values()
+                .copied()
+                .collect::<Vec<_>>(),
+            [41, 42, 43, 44, 45, 46, 47, 48, 49]
+        );
+        assert_eq!(
+            sg.block(&s, BOTTOM_LEFT_BLOCK)
+                .values()
+                .copied()
+                .collect::<Vec<_>>(),
+            [51, 52, 53, 54, 55, 56, 57, 58, 59]
+        );
+        assert_eq!(
+            sg.block(&s, BOTTOM_CENTER_BLOCK)
+                .values()
+                .copied()
+                .collect::<Vec<_>>(),
+            [61, 62, 63, 64, 65, 66, 67, 68, 69]
+        );
+        assert_eq!(
+            sg.block(&s, BOTTOM_RIGHT_BLOCK)
+                .values()
+                .copied()
+                .collect::<Vec<_>>(),
+            [71, 72, 73, 74, 75, 76, 77, 78, 79]
+        );
+
+        // rows
+        assert_eq!(
+            sg.row(&s, 0).values().copied().collect::<Vec<_>>(),
+            [71, 72, 73, 11, 12, 13, 51, 52, 53]
+        );
+        assert_eq!(
+            sg.row(&s, 1).values().copied().collect::<Vec<_>>(),
+            [74, 75, 76, 14, 15, 16, 54, 55, 56]
+        );
+        assert_eq!(
+            sg.row(&s, 2).values().copied().collect::<Vec<_>>(),
+            [77, 78, 79, 17, 18, 19, 57, 58, 59]
+        );
+        assert_eq!(
+            sg.row(&s, 3).values().copied().collect::<Vec<_>>(),
+            [21, 22, 23, 31, 32, 33, 41, 42, 43]
+        );
+        assert_eq!(
+            sg.row(&s, 4).values().copied().collect::<Vec<_>>(),
+            [24, 25, 26, 34, 35, 36, 44, 45, 46]
+        );
+        assert_eq!(
+            sg.row(&s, 5).values().copied().collect::<Vec<_>>(),
+            [27, 28, 29, 37, 38, 39, 47, 48, 49]
+        );
+        assert_eq!(
+            sg.row(&s, 6).values().copied().collect::<Vec<_>>(),
+            [51, 52, 53, 61, 62, 63, 71, 72, 73]
+        );
+        assert_eq!(
+            sg.row(&s, 7).values().copied().collect::<Vec<_>>(),
+            [54, 55, 56, 64, 65, 66, 74, 75, 76]
+        );
+        assert_eq!(
+            sg.row(&s, 8).values().copied().collect::<Vec<_>>(),
+            [57, 58, 59, 67, 68, 69, 77, 78, 79]
+        );
+
+        // columns
+        assert_eq!(
+            sg.column(&s, 0).values().copied().collect::<Vec<_>>(),
+            [71, 74, 77, 21, 24, 27, 51, 54, 57]
+        );
+        assert_eq!(
+            sg.column(&s, 1).values().copied().collect::<Vec<_>>(),
+            [72, 75, 78, 22, 25, 28, 52, 55, 58]
+        );
+        assert_eq!(
+            sg.column(&s, 2).values().copied().collect::<Vec<_>>(),
+            [73, 76, 79, 23, 26, 29, 53, 56, 59]
+        );
+        assert_eq!(
+            sg.column(&s, 3).values().copied().collect::<Vec<_>>(),
+            [11, 14, 17, 31, 34, 37, 61, 64, 67]
+        );
+        assert_eq!(
+            sg.column(&s, 4).values().copied().collect::<Vec<_>>(),
+            [12, 15, 18, 32, 35, 38, 62, 65, 68]
+        );
+        assert_eq!(
+            sg.column(&s, 5).values().copied().collect::<Vec<_>>(),
+            [13, 16, 19, 33, 36, 39, 63, 66, 69]
+        );
+        assert_eq!(
+            sg.column(&s, 6).values().copied().collect::<Vec<_>>(),
+            [51, 54, 57, 41, 44, 47, 71, 74, 77]
+        );
+        assert_eq!(
+            sg.column(&s, 7).values().copied().collect::<Vec<_>>(),
+            [52, 55, 58, 42, 45, 48, 72, 75, 78]
+        );
+        assert_eq!(
+            sg.column(&s, 8).values().copied().collect::<Vec<_>>(),
+            [53, 56, 59, 43, 46, 49, 73, 76, 79]
+        );
+    }
+
+    #[test]
+    fn validate_region() {
+        let mut sg = SudokuGrid::new(1, 1);
+        sg.cells = (0..7 * 9).collect(); // 0..63
+
+        // full validation
+        assert!(Region(&sg, [1, 2, 3, 4, 5, 6, 7, 8, 9].into_iter()).validate(false));
+        assert!(Region(&sg, [9, 6, 3, 8, 5, 2, 7, 4, 1].into_iter()).validate(false));
+        assert!(!Region(&sg, [1, 2, 3, 4, 5, 6, 7, 0, 9].into_iter()).validate(false));
+        assert!(!Region(&sg, [1, 2, 3, 4, 5, 6, 7, 10, 9].into_iter()).validate(false));
+        assert!(!Region(&sg, [1, 2, 2, 4, 5, 6, 7, 8, 9].into_iter()).validate(false));
+        assert!(!Region(&sg, [1, 2, 3, 4, 5, 6, 7, 9, 9].into_iter()).validate(false));
+        assert!(!Region(&sg, [1, 2, 3, 4, 5, 6, 7, 8, 1].into_iter()).validate(false));
+
+        // partial validation
+        assert!(Region(&sg, [1, 2, 3, 4, 5, 6, 7, 8, 9].into_iter()).validate(true));
+        assert!(Region(&sg, [9, 6, 3, 8, 5, 2, 7, 4, 1].into_iter()).validate(true));
+        assert!(Region(&sg, [0, 0, 0, 0, 0, 0, 0, 0, 0].into_iter()).validate(true));
+        assert!(Region(&sg, [0, 1, 0, 0, 0, 0, 6, 0, 0].into_iter()).validate(true));
+        assert!(Region(&sg, [1, 2, 3, 4, 5, 6, 7, 0, 9].into_iter()).validate(true));
+        assert!(!Region(&sg, [1, 2, 3, 4, 5, 6, 7, 10, 9].into_iter()).validate(true));
+        assert!(!Region(&sg, [1, 2, 2, 4, 5, 6, 7, 8, 9].into_iter()).validate(true));
+        assert!(!Region(&sg, [1, 2, 3, 4, 5, 6, 7, 9, 9].into_iter()).validate(true));
+        assert!(!Region(&sg, [1, 2, 3, 4, 5, 6, 7, 8, 1].into_iter()).validate(true));
+    }
+
+    #[test]
+    fn sudoku_indexes() {
+        let sg = SudokuGrid::new(1, 1);
+        let s = sg.sudoku(0, 0);
+        let v = s.indexes().collect::<Vec<_>>();
+        assert_eq!(v.len(), 9 * 9);
+    }
+}

@@ -1,5 +1,6 @@
-mod sudoku;
-use sudoku::Sudoku;
+mod sudokus;
+use sudokus::{SudokuGrid, BOTTOM_LEFT_BLOCK, BOTTOM_RIGHT_BLOCK};
+
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
@@ -16,7 +17,7 @@ pub fn random_int(max: usize) -> usize {
 }
 
 /// Get randomly shuffled 1..=9
-pub fn random_sequence() -> impl Iterator<Item = u8> {
+pub fn generate_random_sequence() -> impl Iterator<Item = u8> {
     let mut values: Vec<u8> = (1..=9).collect();
     (0..9).map(move |_| {
         if values.len() > 1 {
@@ -29,69 +30,129 @@ pub fn random_sequence() -> impl Iterator<Item = u8> {
 
 /// Generate a solved sudoku based on random input data
 #[wasm_bindgen]
-pub fn generate() -> Box<[u8]> {
+pub fn generate(n: usize, m: usize) -> Box<[u8]> {
     console_error_panic_hook::set_once();
 
-    let mut s = Sudoku::new_empty();
+    let mut sg = SudokuGrid::new(n, m);
 
-    // randomly fill first block
-    for (i, v) in s.block(0).indexes().zip(random_sequence()) {
-        s[i] = v;
-    }
+    // fill corners
+    for x in 0..n {
+        for y in 0..m {
+            // TODO: make this work for n > 2 && m > 2
+            let sudoku = sg.sudoku(x, y);
 
-    // set opposite block to same numbers
-    for (i, j) in s.block(8).indexes().zip(s.block(0).indexes()) {
-        s[i] = s[j];
-    }
-
-    // randomly fill second block while satisfying constraints
-    let values = random_sequence().collect::<Vec<u8>>();
-    let mut vi = [0usize; 9]; // value index (which random value is it using?)
-    let indexes: Vec<usize> = s.block(2).indexes().collect();
-    let mut i = 0;
-    while i < 9 {
-        let index = indexes[i];
-        s[index] = values[vi[i]];
-
-        while s.cell_is_problematic(index) && vi[i] < 8 {
-            vi[i] += 1;
-            s[index] = values[vi[i]];
-        }
-
-        if s.cell_is_problematic(index) {
-            // there is no solution, we should backtrack
-            while vi[i] == 8 {
-                s[indexes[i]] = 0;
-                vi[i] = 0;
-                if i == 0 {
-                    unreachable!("no solution");
-                }
-                i -= 1;
+            if x == 0 && y == 0 {
+                // randomly fill bottom left block
+                sg.set_block(&sudoku, BOTTOM_LEFT_BLOCK, generate_random_sequence());
+            } else {
+                // randomized depth-first solve block
+                let random_values = generate_random_sequence().collect();
+                let backtracks = sg
+                    .depth_first_solve_block(&sudoku, BOTTOM_LEFT_BLOCK, random_values)
+                    .unwrap_or_else(|_| panic!("Could not solve\n{sg:?}"));
+                log(format!("Sudoku ({x}, {y}) bottom left: {backtracks} backtracks").as_str());
             }
-            vi[i] += 1;
-        } else {
-            // let's try and see if this works
-            i += 1;
+
+            // randomized depth-first solve block
+            let random_values = generate_random_sequence().collect();
+            let backtracks = sg
+                .depth_first_solve_block(&sudoku, BOTTOM_RIGHT_BLOCK, random_values)
+                .unwrap_or_else(|_| panic!("Could not solve\n{sg:?}"));
+            log(format!("Sudoku ({x}, {y}) bottom right: {backtracks} backtracks").as_str());
         }
     }
 
-    // set opposite block to same numbers (we can assume constraints hold here)
-    for (i, j) in s.block(6).indexes().zip(s.block(2).indexes()) {
-        s[i] = s[j];
+    log(format!("{sg:?}").as_str());
+
+    // solve sudokus
+    // (I assume it is always possible to solve them with any valid corner blocks)
+    for x in 0..n {
+        for y in 0..m {
+            let backtracks = sg.depth_first_solve(&sg.sudoku(x, y)).unwrap();
+            log(format!("Sudoku ({x}, {y}) solve: {backtracks} backtracks").as_str());
+        }
     }
 
-    log(format!("{:?}", s).as_str());
+    log(format!("{sg:?}").as_str());
 
-    let res = s.solve();
-    log(format!("Solve result: {:?}", res).as_str());
+    sg.sudoku_rows().collect()
+}
 
-    log(format!("{:?}", s).as_str());
-    log(format!("Is valid: {}", s.is_solved()).as_str());
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    if res == Ok(()) {
-        s.into()
-    } else {
-        log("Oops! This is unsolvable...");
-        generate()
+    #[test]
+    fn doable_solve0() {
+        let mut sg = SudokuGrid::new(2, 2);
+        let s = sg.sudoku(0, 0);
+        sg.set_block(&s, sudokus::TOP_LEFT_BLOCK, 1..=9);
+
+        println!("{:?}", sg);
+
+        let backtracks = sg.depth_first_solve(&s).unwrap();
+        println!("Backtracks: {backtracks}");
+        assert!(sg.is_solved(&s));
+    }
+
+    #[test]
+    fn doable_solve1() {
+        let mut sg = SudokuGrid::new(2, 2);
+        let s = sg.sudoku(0, 0);
+        sg.set_block(&s, sudokus::MIDDLE_CENTER_BLOCK, 1..=9);
+
+        println!("{:?}", sg);
+
+        let backtracks = sg.depth_first_solve(&s).unwrap();
+        println!("Backtracks: {backtracks}");
+        assert!(sg.is_solved(&s));
+    }
+
+    #[test]
+    fn doable_solve2() {
+        let mut sg = SudokuGrid::new(2, 2);
+        let s = sg.sudoku(0, 0);
+        sg.set_block(&s, sudokus::BOTTOM_RIGHT_BLOCK, 1..=9);
+
+        println!("{:?}", sg);
+
+        let backtracks = sg.depth_first_solve(&s).unwrap();
+        println!("Backtracks: {backtracks}");
+        assert!(sg.is_solved(&s));
+    }
+
+    #[test]
+    fn doable_solve3() {
+        let mut sg = SudokuGrid::new(2, 2);
+        let s = sg.sudoku(0, 0);
+        sg.set_block(&s, sudokus::BOTTOM_RIGHT_BLOCK, 1..=7);
+
+        println!("{:?}", sg);
+
+        let backtracks = sg.depth_first_solve(&s).unwrap();
+        println!("Backtracks: {backtracks}");
+        assert!(sg.is_solved(&s));
+    }
+
+    #[test]
+    fn difficult_solve() {
+        let mut sg = SudokuGrid::new(2, 2);
+        let s = sg.sudoku(0, 0);
+        sg.set_block(&s, sudokus::BOTTOM_RIGHT_BLOCK, 1..=8);
+
+        println!("{:?}", sg);
+
+        // depth-first search will need to backtrack a lot because it only realizes at
+        // the very end the last cell needs to be a 9
+        // TODO: verify that this is why this happens and it is not actually stuck in an
+        // infinite loop or something (it seems to backtrack more than 850,000,000 times
+        // without using `solve_trivial_regions`)
+        sg.solve_trivial_regions(&s); // this makes it a lot easier :)
+        println!("{:?}", sg);
+        let backtracks = sg.depth_first_solve(&s).unwrap();
+        println!("{:?}", sg);
+
+        println!("Backtracks: {backtracks}");
+        assert!(sg.is_solved(&s));
     }
 }

@@ -190,5 +190,11 @@ function tick() {
 requestAnimationFrame(tick);
 
 // Generate sudoku
-let data = generate();
-u_sudoku.setSourceArray(data, 9, 9, gl.internal.LUMINANCE);
+const n = 2;
+const m = 2;
+let data = generate(n, m);
+console.log(data);
+
+const u_world_size = gl.uniform("u_world_size", "2fv", [n, m]);
+u_sudoku.setSourceArray(data, 9, n * m * 9, gl.internal.LUMINANCE);
+// TODO: change how the multiple sudokus are stored and handled
