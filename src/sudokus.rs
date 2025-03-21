@@ -63,11 +63,11 @@ impl Sudoku {
             BOTTOM_RIGHT_BLOCK,
             TOP_LEFT_BLOCK,
             TOP_RIGHT_BLOCK,
-            MIDDLE_CENTER_BLOCK,
             BOTTOM_CENTER_BLOCK,
             TOP_CENTER_BLOCK,
             MIDDLE_LEFT_BLOCK,
             MIDDLE_RIGHT_BLOCK,
+            MIDDLE_CENTER_BLOCK, // testing showed that doing center last gives fasted solves
         ];
         block_order
             .into_iter()

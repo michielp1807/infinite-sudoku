@@ -66,14 +66,17 @@ pub fn generate(n: usize, m: usize) -> Box<[u8]> {
 
     // solve sudokus
     // (I assume it is always possible to solve them with any valid corner blocks)
+    let mut solve_total_backtracks = 0;
     for x in 0..n {
         for y in 0..m {
             let backtracks = sg.depth_first_solve(&sg.sudoku(x, y)).unwrap();
             log(format!("Sudoku ({x}, {y}) solve: {backtracks} backtracks").as_str());
+            solve_total_backtracks += backtracks;
         }
     }
 
     log(format!("{sg:?}").as_str());
+    log(format!("solve_total_backtracks: {solve_total_backtracks}").as_str());
 
     sg.sudoku_rows().collect()
 }
