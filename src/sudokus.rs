@@ -90,12 +90,113 @@ pub const BOTTOM_RIGHT_BLOCK: usize = 8;
 pub struct SudokuGrid {
     /// Stores all cells without overlap (so 7 * 9 cells per sudoku)
     pub cells: Box<[u8]>,
-    n: usize,
-    m: usize,
+    pub n: usize,
+    pub m: usize,
 }
 
 #[derive(Debug)]
 pub struct NoSolution;
+
+pub struct DfsBlock<'a> {
+    indexes: Box<[usize]>,
+    sudoku: &'a Sudoku,
+    other_sudoku: Option<Sudoku>,
+    random: &'a [u8],
+    value_index: [usize; 9],
+    backtracks: u64,
+    i: usize,
+}
+
+impl<'a> DfsBlock<'a> {
+    pub fn new(sg: &SudokuGrid, sudoku: &'a Sudoku, i: usize, random: &'a [u8]) -> Self {
+        let indexes = sg.block(sudoku, i).indexes().collect();
+
+        let other_sudoku = match i {
+            TOP_LEFT_BLOCK => Some(sg.sudoku(sudoku.x, (sudoku.y + 1) % sg.m)),
+            TOP_RIGHT_BLOCK => Some(sg.sudoku((sudoku.x + 1) % sg.n, sudoku.y)),
+            BOTTOM_LEFT_BLOCK => Some(sg.sudoku((sudoku.x + sg.n - 1) % sg.n, sudoku.y)),
+            BOTTOM_RIGHT_BLOCK => Some(sg.sudoku(sudoku.x, (sudoku.y + sg.m - 1) % sg.m)),
+            _ => None,
+        };
+
+        DfsBlock {
+            indexes,
+            sudoku,
+            other_sudoku,
+            value_index: [0; 9],
+            random,
+            backtracks: 0,
+            i: 0,
+        }
+    }
+
+    fn backtrack(&mut self, sg: &mut SudokuGrid) -> Result<(), NoSolution> {
+        self.backtracks += 1;
+        while self.value_index[self.i] >= 8 {
+            sg.cells[self.indexes[self.i]] = 0;
+            self.value_index[self.i] = 0;
+            if self.i == 0 {
+                return Err(NoSolution);
+            }
+            self.i -= 1;
+        }
+        self.value_index[self.i] += 1;
+
+        Ok(())
+    }
+
+    pub fn next_solution(&mut self, sg: &mut SudokuGrid) -> Result<u64, NoSolution> {
+        if self.i >= 9 {
+            self.i = 8;
+            self.value_index[self.i] += 1;
+            println!("i: {}, vi: {}", self.i, self.value_index[self.i]);
+            if self.value_index[self.i] >= 8 {
+                self.backtrack(sg)?
+            }
+            println!("i: {}", self.i);
+        }
+
+        while self.i < 9 {
+            let index = self.indexes[self.i];
+            sg.cells[index] = self.random[self.value_index[self.i]];
+
+            while (sg.cell_is_problematic(self.sudoku, index)
+                || self
+                    .other_sudoku
+                    .as_ref()
+                    .is_some_and(|s| sg.cell_is_problematic(s, index)))
+                && self.value_index[self.i] < 8
+            {
+                self.value_index[self.i] += 1;
+                sg.cells[index] = self.random[self.value_index[self.i]];
+            }
+
+            if sg.cell_is_problematic(self.sudoku, index)
+                || self
+                    .other_sudoku
+                    .as_ref()
+                    .is_some_and(|s| sg.cell_is_problematic(s, index))
+            {
+                // there is no solution, we should backtrack
+                self.backtrack(sg)?;
+            } else {
+                // let's try and see if this works
+                self.i += 1;
+            }
+        }
+
+        Ok(self.backtracks)
+    }
+
+    pub fn reset(&mut self, sg: &mut SudokuGrid) {
+        self.i = 0;
+        self.backtracks = 0;
+        self.value_index = [0; 9];
+        for i in self.indexes.iter() {
+            sg.cells[*i] = 0;
+        }
+    }
+}
 
 impl SudokuGrid {
     pub fn new(n: usize, m: usize) -> Self {
@@ -114,7 +215,7 @@ impl SudokuGrid {
                 (x + ((y + 1) % self.m) * self.n) * 7 * 9 + 6 * 9,
                 this_start,
                 (((x + 1) % self.n) + y * self.n) * 7 * 9 + 4 * 9,
-                this_start + 1 * 9,
+                this_start + 9,
                 this_start + 2 * 9,
                 this_start + 3 * 9,
                 this_start + 4 * 9,
@@ -155,8 +256,7 @@ impl SudokuGrid {
             self,
             blocks
                 .into_iter()
-                .map(move |b| offsets.into_iter().map(move |o| o + b))
-                .flatten(),
+                .flat_map(move |b| offsets.into_iter().map(move |o| o + b)),
         )
     }
 
@@ -174,8 +274,7 @@ impl SudokuGrid {
             self,
             blocks
                 .into_iter()
-                .map(move |b| offsets.into_iter().map(move |o| o + b))
-                .flatten(),
+                .flat_map(move |b| offsets.into_iter().map(move |o| o + b)),
         )
     }
 
@@ -190,21 +289,21 @@ impl SudokuGrid {
 
     /// Get row for cell index
     pub fn row_for(&self, sudoku: &Sudoku, i: usize) -> Region<impl Iterator<Item = usize>> {
-        let block = self.block_index_for(&sudoku, i);
+        let block = self.block_index_for(sudoku, i);
         let row = (i % 9) / 3 + block / 3 * 3;
         self.row(sudoku, row)
     }
 
     /// Get column for cell index
     pub fn column_for(&self, sudoku: &Sudoku, i: usize) -> Region<impl Iterator<Item = usize>> {
-        let block = self.block_index_for(&sudoku, i);
+        let block = self.block_index_for(sudoku, i);
         let column = i % 3 + (block % 3) * 3;
         self.column(sudoku, column)
     }
 
     /// Get block for cell index
     pub fn block_for(&self, sudoku: &Sudoku, i: usize) -> Region<impl Iterator<Item = usize>> {
-        self.block(&sudoku, self.block_index_for(&sudoku, i))
+        self.block(sudoku, self.block_index_for(sudoku, i))
     }
 
     pub fn set_block(&mut self, sudoku: &Sudoku, i: usize, values: impl Iterator<Item = u8>) {
@@ -213,78 +312,20 @@ impl SudokuGrid {
         }
     }
 
-    pub fn depth_first_solve_block(
-        &mut self,
-        sudoku: &Sudoku,
-        i: usize,
-        random: Box<[u8]>,
-    ) -> Result<u64, NoSolution> {
-        let indexes = self.block(&sudoku, i).indexes().collect::<Vec<_>>();
-
-        let other_sudoku = match i {
-            TOP_LEFT_BLOCK => Some(self.sudoku(sudoku.x, (sudoku.y + 1) % self.m)),
-            TOP_RIGHT_BLOCK => Some(self.sudoku((sudoku.x + 1) % self.n, sudoku.y)),
-            BOTTOM_LEFT_BLOCK => Some(self.sudoku((sudoku.x + self.n - 1) % self.n, sudoku.y)),
-            BOTTOM_RIGHT_BLOCK => Some(self.sudoku(sudoku.x, (sudoku.y + self.m - 1) % self.m)),
-            _ => None,
-        };
-
-        let mut vi = [0usize; 9]; // value index (which random value is it using?)
-
-        let mut backtracks: u64 = 0;
-        let mut i = 0;
-        while i < 9 {
-            let index = indexes[i];
-            self.cells[index] = random[vi[i]];
-
-            while (self.cell_is_problematic(&sudoku, index)
-                || other_sudoku
-                    .as_ref()
-                    .map_or(false, |s| self.cell_is_problematic(&s, index)))
-                && vi[i] < 8
-            {
-                vi[i] += 1;
-                self.cells[index] = random[vi[i]];
-            }
-
-            if self.cell_is_problematic(&sudoku, index)
-                || other_sudoku
-                    .as_ref()
-                    .map_or(false, |s| self.cell_is_problematic(&s, index))
-            {
-                // there is no solution, we should backtrack
-                backtracks += 1;
-                while vi[i] == 8 {
-                    self.cells[indexes[i]] = 0;
-                    vi[i] = 0;
-                    if i == 0 {
-                        return Err(NoSolution);
-                    }
-                    i -= 1;
-                }
-                vi[i] += 1;
-            } else {
-                // let's try and see if this works
-                i += 1;
-            }
-        }
-        Ok(backtracks)
-    }
-
     /// Check if sudoku is solved correctly
     pub fn is_solved(&self, sudoku: &Sudoku) -> bool {
         // row constraint
-        if !(0..9).all(|i| self.row(&sudoku, i).validate(false)) {
+        if !(0..9).all(|i| self.row(sudoku, i).validate(false)) {
             return false;
         }
 
         // column constraint
-        if !(0..9).all(|i| self.column(&sudoku, i).validate(false)) {
+        if !(0..9).all(|i| self.column(sudoku, i).validate(false)) {
             return false;
         }
 
         // block constraint
-        if !(0..9).all(|i| self.block(&sudoku, i).validate(false)) {
+        if !(0..9).all(|i| self.block(sudoku, i).validate(false)) {
             return false;
         }
 
@@ -348,9 +389,9 @@ impl SudokuGrid {
     pub fn solve_trivial_regions(&mut self, sudoku: &Sudoku) {
         let mut unsolved_regions = Vec::<Vec<usize>>::new();
         for i in 0..9 {
-            unsolved_regions.push(self.row(&sudoku, i).indexes().collect());
-            unsolved_regions.push(self.column(&sudoku, i).indexes().collect());
-            unsolved_regions.push(self.block(&sudoku, i).indexes().collect());
+            unsolved_regions.push(self.row(sudoku, i).indexes().collect());
+            unsolved_regions.push(self.column(sudoku, i).indexes().collect());
+            unsolved_regions.push(self.block(sudoku, i).indexes().collect());
         }
 
         let mut has_changed = true;
@@ -415,7 +456,7 @@ impl std::fmt::Debug for SudokuGrid {
                     if i % 3 == 2 && i < 8 {
                         writeln!(f, "\n├───────┼───────┼───────┤")?;
                     } else {
-                        writeln!(f, "")?;
+                        writeln!(f)?;
                     }
                 }
                 writeln!(f, "└───────┴───────┴───────┘")?;
@@ -673,5 +714,38 @@ mod tests {
         let s = sg.sudoku(0, 0);
         let v = s.indexes().collect::<Vec<_>>();
         assert_eq!(v.len(), 9 * 9);
+    }
+
+    #[test]
+    fn dfs_block_next_solution() {
+        let mut sg = SudokuGrid::new(1, 1);
+        let s = sg.sudoku(0, 0);
+        let order = [4, 1, 7, 9, 2, 6, 5, 3, 8];
+        let mut dfs_block = DfsBlock::new(&sg, &s, TOP_LEFT_BLOCK, &order);
+
+        assert!(dfs_block
+            .next_solution(&mut sg)
+            .is_ok_and(|backtracks| backtracks == 0));
+        println!("{sg:?}");
+        assert!(sg.block(&s, TOP_LEFT_BLOCK).values().eq(&order));
+
+        assert!(dfs_block
+            .next_solution(&mut sg)
+            .is_ok_and(|backtracks| backtracks == 1));
+        println!("{sg:?}");
+        assert!(sg
+            .block(&s, TOP_LEFT_BLOCK)
+            .values()
+            .eq(&[4, 1, 7, 9, 2, 6, 5, 8, 3]));
+
+        assert!(dfs_block.next_solution(&mut sg).is_ok_and(|backtracks| {
+            println!("backtracks: {backtracks}");
+            backtracks == 2
+        }));
+        println!("{sg:?}");
+        assert!(sg
+            .block(&s, TOP_LEFT_BLOCK)
+            .values()
+            .eq(&[4, 1, 7, 9, 2, 6, 3, 5, 8]));
     }
 }
