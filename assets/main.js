@@ -190,8 +190,8 @@ function tick() {
 requestAnimationFrame(tick);
 
 // Generate sudoku
-const n = 2;
-const m = 2;
+const n = 3;
+const m = 3;
 let data = generate(n, m);
 console.log(data);
 

@@ -1,5 +1,8 @@
 mod sudokus;
-use sudokus::{SudokuGrid, BOTTOM_LEFT_BLOCK, BOTTOM_RIGHT_BLOCK};
+use sudokus::{
+    DfsBlock, SudokuGrid, BOTTOM_LEFT_BLOCK, BOTTOM_RIGHT_BLOCK, MIDDLE_CENTER_BLOCK,
+    TOP_RIGHT_BLOCK,
+};
 
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -38,27 +41,40 @@ pub fn generate(n: usize, m: usize) -> Box<[u8]> {
     // fill corners
     for x in 0..n {
         for y in 0..m {
-            // TODO: make this work for n > 2 && m > 2
             let sudoku = sg.sudoku(x, y);
 
-            if x == 0 && y == 0 {
-                // randomly fill bottom left block
-                sg.set_block(&sudoku, BOTTOM_LEFT_BLOCK, generate_random_sequence());
-            } else {
-                // randomized depth-first solve block
-                let random_values = generate_random_sequence().collect();
-                let backtracks = sg
-                    .depth_first_solve_block(&sudoku, BOTTOM_LEFT_BLOCK, random_values)
-                    .unwrap_or_else(|_| panic!("Could not solve\n{sg:?}"));
-                log(format!("Sudoku ({x}, {y}) bottom left: {backtracks} backtracks").as_str());
-            }
+            // randomized depth-first solve block
+            let random_values = generate_random_sequence().collect::<Box<[u8]>>();
+            let backtracks = DfsBlock::new(&sg, &sudoku, BOTTOM_LEFT_BLOCK, &random_values)
+                .next_solution(&mut sg)
+                .unwrap_or_else(|_| panic!("Could not solve\n{sg:?}"));
+            log(format!("Sudoku ({x}, {y}) bottom left: {backtracks} backtracks").as_str());
+        }
+
+        for y in 0..m {
+            let sudoku = sg.sudoku(x, y);
 
             // randomized depth-first solve block
-            let random_values = generate_random_sequence().collect();
-            let backtracks = sg
-                .depth_first_solve_block(&sudoku, BOTTOM_RIGHT_BLOCK, random_values)
-                .unwrap_or_else(|_| panic!("Could not solve\n{sg:?}"));
-            log(format!("Sudoku ({x}, {y}) bottom right: {backtracks} backtracks").as_str());
+            let random_values = generate_random_sequence().collect::<Box<[u8]>>();
+            let mut backtracks = 0;
+            let mut dfs = DfsBlock::new(&sg, &sudoku, BOTTOM_RIGHT_BLOCK, &random_values);
+            if let Err(_) = dfs.next_solution(&mut sg) {
+                let mut other_dfs = DfsBlock::new(&sg, &sudoku, TOP_RIGHT_BLOCK, &random_values);
+                other_dfs.reset(&mut sg);
+                other_dfs
+                    .next_solution(&mut sg)
+                    .unwrap_or_else(|_| panic!("Could not solve\n{sg:?}"));
+                dfs.reset(&mut sg);
+                // TODO: fix this - if possible? maybe I also need to try changing the other block
+                while let Err(_) = dfs.next_solution(&mut sg) {
+                    other_dfs
+                        .next_solution(&mut sg)
+                        .unwrap_or_else(|_| panic!("Could not solve\n{sg:?}"));
+                    dfs.reset(&mut sg);
+                    backtracks += 1;
+                }
+            }
+            log(format!("Sudoku ({x}, {y}) bottom right: {backtracks} block backtracks").as_str());
         }
     }
 
@@ -77,6 +93,19 @@ pub fn generate(n: usize, m: usize) -> Box<[u8]> {
 
     log(format!("{sg:?}").as_str());
     log(format!("solve_total_backtracks: {solve_total_backtracks}").as_str());
+
+    // punch holes
+
+    for x in 0..n {
+        for y in 0..m {
+            let sudoku = sg.sudoku(x, y);
+            let indexes = sg
+                .block(&sudoku, MIDDLE_CENTER_BLOCK)
+                .indexes()
+                .collect::<Vec<_>>();
+            sg.cells[indexes[4]] = 0;
+        }
+    }
 
     sg.sudoku_rows().collect()
 }
