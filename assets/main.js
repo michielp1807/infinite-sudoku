@@ -4,8 +4,9 @@ import glSetup from "./webgl.js";
 const canvas = document.getElementsByTagName("canvas")[0];
 const [_, gl] = await Promise.all([init(), glSetup(canvas)]);
 
+const pixel_ratio = (window.devicePixelRatio);
 const u_window_resolution = gl.uniform("u_window_resolution", "2fv",
-    [window.innerWidth, window.innerHeight]);
+    [window.innerWidth * pixel_ratio, window.innerHeight * pixel_ratio]);
 
 const u_mouse_coords = gl.uniform("u_mouse_coords", "2fv", [0, 0]);
 
@@ -81,6 +82,9 @@ canvas.addEventListener("mousedown", (ev) => {
 });
 
 document.addEventListener("mousemove", (ev) => {
+    const x = ev.clientX * pixel_ratio;
+    const y = ev.clientY * pixel_ratio;
+
     if (ev.buttons == 0) { // no mouse buttons pressed
         clicked = false;
         dragging = false;
@@ -89,14 +93,14 @@ document.addEventListener("mousemove", (ev) => {
     if (clicked) {
         dragging = true;
         // Click & drag to pan view
-        let dx = ev.clientX - mx;
-        let dy = ev.clientY - my;
+        let dx = x - mx;
+        let dy = y - my;
         translate[0] -= dx * inv_scale;
         translate[1] += dy * inv_scale;
         u_translate.set(translate);
     }
 
-    [mx, my] = [ev.clientX, ev.clientY];
+    [mx, my] = [x, y];
 });
 
 document.addEventListener("mouseup", (ev) => {
@@ -119,8 +123,8 @@ function computeTouchCenter(touches) {
         cx += touch.clientX;
         cy += touch.clientY;
     }
-    cx /= touches.length;
-    cy /= touches.length;
+    cx *= pixel_ratio / touches.length;
+    cy *= pixel_ratio / touches.length;
     return [cx, cy]
 }
 
@@ -154,7 +158,7 @@ document.addEventListener("touchmove", (ev) => {
         let t1 = ev.touches[0];
         let t2 = ev.touches[1];
         let d = Math.sqrt((t1.clientX - t2.clientX) ** 2 + (t1.clientY - t2.clientY) ** 2);
-        zoomInTo((d - td) / td, cx, cy);
+        zoomInTo((d - td) / td, cx / pixel_ratio, cy / pixel_ratio);
         td = d;
     }
 });
@@ -167,9 +171,11 @@ document.addEventListener("touchend", (ev) => {
 
 // Resize canvas
 function resize() {
-    canvas.width = Math.floor(window.innerWidth);
-    canvas.height = Math.floor(window.innerHeight);
-    u_window_resolution.set([window.innerWidth, window.innerHeight]);
+    canvas.width = Math.ceil(pixel_ratio * window.innerWidth);
+    canvas.height = Math.ceil(pixel_ratio * window.innerHeight);
+    u_window_resolution.set([
+        window.innerWidth * pixel_ratio, window.innerHeight * pixel_ratio
+    ]);
     gl.resize();
 }
 window.addEventListener("resize", resize);
@@ -178,8 +184,8 @@ resize();
 // WebGL draw loop
 function tick() {
     // map mouse screen coordinates to cell coordinates
-    let bx = (mx - 0.5 * window.innerWidth) * inv_scale + translate[0];
-    let by = (my - 0.5 * window.innerHeight) * inv_scale - translate[1] + 1;
+    let bx = (mx - 0.5 * window.innerWidth * pixel_ratio) * inv_scale + translate[0];
+    let by = (my - 0.5 * window.innerHeight * pixel_ratio) * inv_scale - translate[1] + 1;
     u_mouse_coords.set([bx, by]);
     // TODO: don't change highlighted cell when cell is selected for number input
 
