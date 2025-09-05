@@ -49,7 +49,7 @@ impl<'a, T: Iterator<Item = usize>> Region<'a, T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Sudoku {
     block_start: [usize; 9],
     x: usize,
@@ -74,6 +74,10 @@ impl Sudoku {
             .map(|b| self.block_start[b])
             .flat_map(|b| b..(b + 9))
     }
+
+    pub fn coords(&self) -> Coords {
+        (self.x, self.y)
+    }
 }
 
 // block indexes
@@ -87,9 +91,20 @@ pub const BOTTOM_LEFT_BLOCK: usize = 6;
 pub const BOTTOM_CENTER_BLOCK: usize = 7;
 pub const BOTTOM_RIGHT_BLOCK: usize = 8;
 
+pub const BLOCK_MEMORY_ORDER: [usize; 7] = [
+    TOP_CENTER_BLOCK,
+    MIDDLE_LEFT_BLOCK,
+    MIDDLE_CENTER_BLOCK,
+    MIDDLE_RIGHT_BLOCK,
+    BOTTOM_LEFT_BLOCK,
+    BOTTOM_CENTER_BLOCK,
+    BOTTOM_RIGHT_BLOCK,
+];
+
 pub struct SudokuGrid {
     /// Stores all cells without overlap (so 7 * 9 cells per sudoku)
     pub cells: Box<[u8]>,
+    sudokus: Box<[Sudoku]>,
     pub n: usize,
     pub m: usize,
 }
@@ -97,10 +112,12 @@ pub struct SudokuGrid {
 #[derive(Debug)]
 pub struct NoSolution;
 
+pub type Coords = (usize, usize);
+
 pub struct DfsBlock<'a> {
     indexes: Box<[usize]>,
-    sudoku: &'a Sudoku,
-    other_sudoku: Option<Sudoku>,
+    sudoku_coords: Coords,
+    other_sudoku_coords: Option<Coords>,
     random: &'a [u8],
     value_index: [usize; 9],
     backtracks: u64,
@@ -108,21 +125,21 @@ pub struct DfsBlock<'a> {
 }
 
 impl<'a> DfsBlock<'a> {
-    pub fn new(sg: &SudokuGrid, sudoku: &'a Sudoku, i: usize, random: &'a [u8]) -> Self {
-        let indexes = sg.block(sudoku, i).indexes().collect();
+    pub fn new(sg: &SudokuGrid, sudoku_coords: Coords, i: usize, random: &'a [u8]) -> Self {
+        let indexes = sg.block(sg.sudoku(sudoku_coords), i).indexes().collect();
 
-        let other_sudoku = match i {
-            TOP_LEFT_BLOCK => Some(sg.sudoku(sudoku.x, (sudoku.y + 1) % sg.m)),
-            TOP_RIGHT_BLOCK => Some(sg.sudoku((sudoku.x + 1) % sg.n, sudoku.y)),
-            BOTTOM_LEFT_BLOCK => Some(sg.sudoku((sudoku.x + sg.n - 1) % sg.n, sudoku.y)),
-            BOTTOM_RIGHT_BLOCK => Some(sg.sudoku(sudoku.x, (sudoku.y + sg.m - 1) % sg.m)),
+        let other_sudoku_coords = match i {
+            TOP_LEFT_BLOCK => Some((sudoku_coords.0, (sudoku_coords.1 + 1) % sg.m)),
+            TOP_RIGHT_BLOCK => Some(((sudoku_coords.0 + 1) % sg.n, sudoku_coords.1)),
+            BOTTOM_LEFT_BLOCK => Some(((sudoku_coords.0 + sg.n - 1) % sg.n, sudoku_coords.1)),
+            BOTTOM_RIGHT_BLOCK => Some((sudoku_coords.0, (sudoku_coords.1 + sg.m - 1) % sg.m)),
             _ => None,
         };
 
         DfsBlock {
             indexes,
-            sudoku,
-            other_sudoku,
+            sudoku_coords,
+            other_sudoku_coords,
             value_index: [0; 9],
             random,
             backtracks: 0,
@@ -160,10 +177,9 @@ impl<'a> DfsBlock<'a> {
             let index = self.indexes[self.i];
             sg.cells[index] = self.random[self.value_index[self.i]];
 
-            while (sg.cell_is_problematic(self.sudoku, index)
+            while (sg.cell_is_problematic(self.sudoku_coords, index)
                 || self
-                    .other_sudoku
-                    .as_ref()
+                    .other_sudoku_coords
                     .is_some_and(|s| sg.cell_is_problematic(s, index)))
                 && self.value_index[self.i] < 8
             {
@@ -171,10 +187,9 @@ impl<'a> DfsBlock<'a> {
                 sg.cells[index] = self.random[self.value_index[self.i]];
             }
 
-            if sg.cell_is_problematic(self.sudoku, index)
+            if sg.cell_is_problematic(self.sudoku_coords, index)
                 || self
-                    .other_sudoku
-                    .as_ref()
+                    .other_sudoku_coords
                     .is_some_and(|s| sg.cell_is_problematic(s, index))
             {
                 // there is no solution, we should backtrack
@@ -200,31 +215,36 @@ impl<'a> DfsBlock<'a> {
 
 impl SudokuGrid {
     pub fn new(n: usize, m: usize) -> Self {
+        let new_sudoku = |x: usize, y: usize| -> Sudoku {
+            let this_start = (x + y * n) * 7 * 9;
+            Sudoku {
+                block_start: [
+                    (x + ((y + 1) % m) * n) * 7 * 9 + 6 * 9,
+                    this_start,
+                    (((x + 1) % n) + y * n) * 7 * 9 + 4 * 9,
+                    this_start + 9,
+                    this_start + 2 * 9,
+                    this_start + 3 * 9,
+                    this_start + 4 * 9,
+                    this_start + 5 * 9,
+                    this_start + 6 * 9,
+                ],
+                x,
+                y,
+            }
+        };
+
         SudokuGrid {
             cells: vec![0; 7 * 9 * n * m].into(),
+            sudokus: (0..n * m).map(|i| new_sudoku(i % n, i / n)).collect(),
             n,
             m,
         }
     }
 
-    pub fn sudoku(&self, x: usize, y: usize) -> Sudoku {
-        debug_assert!(x < self.n && y < self.m);
-        let this_start = (x + y * self.n) * 7 * 9;
-        Sudoku {
-            block_start: [
-                (x + ((y + 1) % self.m) * self.n) * 7 * 9 + 6 * 9,
-                this_start,
-                (((x + 1) % self.n) + y * self.n) * 7 * 9 + 4 * 9,
-                this_start + 9,
-                this_start + 2 * 9,
-                this_start + 3 * 9,
-                this_start + 4 * 9,
-                this_start + 5 * 9,
-                this_start + 6 * 9,
-            ],
-            x,
-            y,
-        }
+    pub fn sudoku(&self, coords: Coords) -> &Sudoku {
+        debug_assert!(coords.0 < self.n && coords.1 < self.m);
+        &self.sudokus[coords.0 + coords.1 * self.n]
     }
 
     /// Loop over sudoku rows (for export to send to WebGL)
@@ -232,8 +252,8 @@ impl SudokuGrid {
     pub fn sudoku_rows(&self) -> impl Iterator<Item = u8> + use<'_> {
         let x = 0..self.n;
         let y = (0..self.m).rev();
-        y.flat_map(move |y| x.clone().map(move |x| self.sudoku(x, y)))
-            .flat_map(move |s| (0..9).flat_map(move |y| self.row(&s, y).values().copied()))
+        y.flat_map(move |y| x.clone().map(move |x| self.sudoku((x, y))))
+            .flat_map(move |s| (0..9).flat_map(move |y| self.row(s, y).values().copied()))
     }
 
     pub fn block(&self, sudoku: &Sudoku, i: usize) -> Region<'_, impl Iterator<Item = usize>> {
@@ -332,24 +352,63 @@ impl SudokuGrid {
         true
     }
 
+    pub fn is_solved_all(&self) -> bool {
+        for x in 0..self.n {
+            for y in 0..self.m {
+                if !self.is_solved(self.sudoku((x, y))) {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
     /// Check if the cell at index i is problematic
-    pub fn cell_is_problematic(&self, sudoku: &Sudoku, i: usize) -> bool {
+    pub fn cell_is_problematic(&self, sudoku_coords: Coords, i: usize) -> bool {
+        let sudoku = self.sudoku(sudoku_coords);
         !self.row_for(sudoku, i).validate(true)
             || !self.column_for(sudoku, i).validate(true)
             || !self.block_for(sudoku, i).validate(true)
+    }
+
+    pub fn sudoku_at_index(&self, i: usize) -> Coords {
+        let sudoku_i = i / 9 / 7;
+        let x = sudoku_i % self.n;
+        let y = sudoku_i / self.n;
+        (x, y)
+    }
+
+    pub fn sudokus_at_index(&self, i: usize) -> (Coords, Option<Coords>) {
+        let block_i = i / 9;
+        let block = match block_i % 7 {
+            0 => TOP_CENTER_BLOCK,
+            n => n + 2, // add to because top left and top right are skipped
+        };
+        let sudoku_i = block_i / 7;
+        let x = sudoku_i % self.n;
+        let y = sudoku_i / self.n;
+        let other_coords = match block {
+            TOP_LEFT_BLOCK => Some((x, (y + 1) % self.m)),
+            TOP_RIGHT_BLOCK => Some(((x + 1) % self.n, y)),
+            BOTTOM_LEFT_BLOCK => Some(((x + self.n - 1) % self.n, y)),
+            BOTTOM_RIGHT_BLOCK => Some((x, (y + self.m - 1) % self.m)),
+            _ => None,
+        };
+        ((x, y), other_coords)
     }
 
     /// Solve a sudoku with depth-first search
     /// (only changes cells containing zeros)
     ///
     /// Returns Err if no solution is found
-    pub fn depth_first_solve(&mut self, sudoku: &Sudoku) -> Result<u64, NoSolution> {
+    pub fn depth_first_solve(&mut self, sudoku_coords: Coords) -> Result<u64, NoSolution> {
         let mut guesses = Vec::new();
         let mut i = 0;
         let mut ignore_non_zero = true;
         let mut backtracks: u64 = 0;
 
-        let indexes = sudoku
+        let indexes = self
+            .sudoku(sudoku_coords)
             .indexes()
             .filter(|i| self.cells[*i] == 0)
             .collect::<Box<[_]>>();
@@ -363,11 +422,12 @@ impl SudokuGrid {
 
             // we will guess a value for this index
             self.cells[indexes[i]] += 1;
-            while self.cells[indexes[i]] < 9 && self.cell_is_problematic(sudoku, indexes[i]) {
+            while self.cells[indexes[i]] < 9 && self.cell_is_problematic(sudoku_coords, indexes[i])
+            {
                 self.cells[indexes[i]] += 1
             }
 
-            if self.cell_is_problematic(sudoku, indexes[i]) {
+            if self.cell_is_problematic(sudoku_coords, indexes[i]) {
                 // there is no solution, we should backtrack
                 backtracks += 1;
                 while self.cells[indexes[i]] == 9 {
@@ -386,7 +446,8 @@ impl SudokuGrid {
         Ok(backtracks)
     }
 
-    pub fn solve_trivial_regions(&mut self, sudoku: &Sudoku) {
+    pub fn solve_trivial_regions(&mut self, sudoku_coords: Coords) -> bool {
+        let sudoku = self.sudoku(sudoku_coords);
         let mut unsolved_regions = Vec::<Vec<usize>>::new();
         for i in 0..9 {
             unsolved_regions.push(self.row(sudoku, i).indexes().collect());
@@ -395,6 +456,7 @@ impl SudokuGrid {
         }
 
         let mut has_changed = true;
+        let mut has_changed_at_all = false;
         while has_changed {
             has_changed = false;
 
@@ -423,6 +485,7 @@ impl SudokuGrid {
                         if self.cells[*i] == 0 {
                             self.cells[*i] = missing;
                             has_changed = true;
+                            has_changed_at_all = true;
                             return false; // remove region because it is done
                         }
                     }
@@ -431,6 +494,7 @@ impl SudokuGrid {
                 empties > 0 // keep regions with empty spots
             });
         }
+        has_changed_at_all
     }
 }
 
@@ -438,12 +502,12 @@ impl std::fmt::Debug for SudokuGrid {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         for x in 0..self.n {
             for y in 0..self.m {
-                let s = self.sudoku(x, y);
+                let s = self.sudoku((x, y));
                 writeln!(f, "Sudoku ({x}, {y}):")?;
                 writeln!(f, "┌───────┬───────┬───────┐")?;
                 for i in 0..9 {
                     write!(f, "│ ")?;
-                    for (j, v) in self.row(&s, i).values().enumerate() {
+                    for (j, v) in self.row(s, i).values().enumerate() {
                         let spaces = if j == 8 {
                             " │"
                         } else if j % 3 == 2 {
@@ -474,12 +538,12 @@ mod tests {
     fn grid_overlap_1x1() {
         let sg = SudokuGrid::new(1, 1);
         assert_eq!(
-            sg.sudoku(0, 0).block_start[TOP_LEFT_BLOCK],
-            sg.sudoku(0, 0).block_start[BOTTOM_RIGHT_BLOCK]
+            sg.sudoku((0, 0)).block_start[TOP_LEFT_BLOCK],
+            sg.sudoku((0, 0)).block_start[BOTTOM_RIGHT_BLOCK]
         );
         assert_eq!(
-            sg.sudoku(0, 0).block_start[TOP_RIGHT_BLOCK],
-            sg.sudoku(0, 0).block_start[BOTTOM_LEFT_BLOCK]
+            sg.sudoku((0, 0)).block_start[TOP_RIGHT_BLOCK],
+            sg.sudoku((0, 0)).block_start[BOTTOM_LEFT_BLOCK]
         );
     }
 
@@ -487,20 +551,20 @@ mod tests {
     fn grid_overlap_2x2() {
         let sg = SudokuGrid::new(2, 2);
         assert_eq!(
-            sg.sudoku(0, 0).block_start[TOP_LEFT_BLOCK],
-            sg.sudoku(0, 1).block_start[BOTTOM_RIGHT_BLOCK]
+            sg.sudoku((0, 0)).block_start[TOP_LEFT_BLOCK],
+            sg.sudoku((0, 1)).block_start[BOTTOM_RIGHT_BLOCK]
         );
         assert_eq!(
-            sg.sudoku(0, 0).block_start[TOP_RIGHT_BLOCK],
-            sg.sudoku(1, 0).block_start[BOTTOM_LEFT_BLOCK]
+            sg.sudoku((0, 0)).block_start[TOP_RIGHT_BLOCK],
+            sg.sudoku((1, 0)).block_start[BOTTOM_LEFT_BLOCK]
         );
         assert_eq!(
-            sg.sudoku(0, 0).block_start[BOTTOM_LEFT_BLOCK],
-            sg.sudoku(1, 0).block_start[TOP_RIGHT_BLOCK]
+            sg.sudoku((0, 0)).block_start[BOTTOM_LEFT_BLOCK],
+            sg.sudoku((1, 0)).block_start[TOP_RIGHT_BLOCK]
         );
         assert_eq!(
-            sg.sudoku(0, 0).block_start[BOTTOM_RIGHT_BLOCK],
-            sg.sudoku(0, 1).block_start[TOP_LEFT_BLOCK]
+            sg.sudoku((0, 0)).block_start[BOTTOM_RIGHT_BLOCK],
+            sg.sudoku((0, 1)).block_start[TOP_LEFT_BLOCK]
         );
     }
 
@@ -508,20 +572,20 @@ mod tests {
     fn grid_overlap_3x3() {
         let sg = SudokuGrid::new(3, 3);
         assert_eq!(
-            sg.sudoku(0, 0).block_start[TOP_LEFT_BLOCK],
-            sg.sudoku(0, 1).block_start[BOTTOM_RIGHT_BLOCK]
+            sg.sudoku((0, 0)).block_start[TOP_LEFT_BLOCK],
+            sg.sudoku((0, 1)).block_start[BOTTOM_RIGHT_BLOCK]
         );
         assert_eq!(
-            sg.sudoku(0, 0).block_start[TOP_RIGHT_BLOCK],
-            sg.sudoku(1, 0).block_start[BOTTOM_LEFT_BLOCK]
+            sg.sudoku((0, 0)).block_start[TOP_RIGHT_BLOCK],
+            sg.sudoku((1, 0)).block_start[BOTTOM_LEFT_BLOCK]
         );
         assert_eq!(
-            sg.sudoku(0, 0).block_start[BOTTOM_LEFT_BLOCK],
-            sg.sudoku(2, 0).block_start[TOP_RIGHT_BLOCK]
+            sg.sudoku((0, 0)).block_start[BOTTOM_LEFT_BLOCK],
+            sg.sudoku((2, 0)).block_start[TOP_RIGHT_BLOCK]
         );
         assert_eq!(
-            sg.sudoku(0, 0).block_start[BOTTOM_RIGHT_BLOCK],
-            sg.sudoku(0, 2).block_start[TOP_LEFT_BLOCK]
+            sg.sudoku((0, 0)).block_start[BOTTOM_RIGHT_BLOCK],
+            sg.sudoku((0, 2)).block_start[TOP_LEFT_BLOCK]
         );
     }
 
@@ -538,7 +602,7 @@ mod tests {
             71, 72, 73, 74, 75, 76, 77, 78, 79, // bottom right block
         ]
         .into();
-        let s = sg.sudoku(0, 0);
+        let s = sg.sudoku((0, 0));
 
         // blocks
         assert_eq!(
@@ -683,6 +747,38 @@ mod tests {
     }
 
     #[test]
+    fn get_sudoku_from_index() {
+        let sg = SudokuGrid::new(3, 3);
+
+        for x in 0..3 {
+            for y in 0..3 {
+                let start = sg.sudoku((x, y)).block_start[TOP_CENTER_BLOCK];
+                for i in 0..9 * 7 {
+                    assert_eq!(sg.sudoku_at_index(start + i), (x, y));
+                    assert_eq!(sg.sudokus_at_index(start + i).0, (x, y));
+                    let _ = sg.block_index_for(sg.sudoku((x, y)), start + i); // shouldn't panic
+                }
+
+                let start = sg.sudoku((x, y)).block_start[TOP_LEFT_BLOCK];
+                assert_eq!(
+                    start,
+                    sg.sudoku((x, (y + 1) % 3)).block_start[BOTTOM_RIGHT_BLOCK]
+                );
+                for i in 0..9 {
+                    assert_eq!(sg.sudokus_at_index(start + i).1, Some((x, y)));
+                    let _ = sg.block_index_for(sg.sudoku((x, y)), start + i); // shouldn't panic
+                }
+
+                let start = sg.sudoku((x, y)).block_start[TOP_RIGHT_BLOCK];
+                for i in 0..9 {
+                    assert_eq!(sg.sudokus_at_index(start + i).1, Some((x, y)));
+                    let _ = sg.block_index_for(sg.sudoku((x, y)), start + i); // shouldn't panic
+                }
+            }
+        }
+    }
+
+    #[test]
     fn validate_region() {
         let mut sg = SudokuGrid::new(1, 1);
         sg.cells = (0..7 * 9).collect(); // 0..63
@@ -711,7 +807,7 @@ mod tests {
     #[test]
     fn sudoku_indexes() {
         let sg = SudokuGrid::new(1, 1);
-        let s = sg.sudoku(0, 0);
+        let s = sg.sudoku((0, 0));
         let v = s.indexes().collect::<Vec<_>>();
         assert_eq!(v.len(), 9 * 9);
     }
@@ -719,9 +815,9 @@ mod tests {
     #[test]
     fn dfs_block_next_solution() {
         let mut sg = SudokuGrid::new(1, 1);
-        let s = sg.sudoku(0, 0);
+        let s = sg.sudoku((0, 0)).clone();
         let order = [4, 1, 7, 9, 2, 6, 5, 3, 8];
-        let mut dfs_block = DfsBlock::new(&sg, &s, TOP_LEFT_BLOCK, &order);
+        let mut dfs_block = DfsBlock::new(&sg, (0, 0), TOP_LEFT_BLOCK, &order);
 
         assert!(dfs_block
             .next_solution(&mut sg)
