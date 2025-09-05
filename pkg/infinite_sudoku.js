@@ -100,6 +100,20 @@ export function generate(n, m) {
     return v1;
 }
 
+/**
+ * @param {number} n
+ * @param {number} m
+ * @param {number} sx
+ * @param {number} sy
+ * @param {number} scx
+ * @param {number} scy
+ * @returns {number}
+ */
+export function get_cell_index(n, m, sx, sy, scx, scy) {
+    const ret = wasm.get_cell_index(n, m, sx, sy, scx, scy);
+    return ret >>> 0;
+}
+
 async function __wbg_load(module, imports) {
     if (typeof Response === 'function' && module instanceof Response) {
         if (typeof WebAssembly.instantiateStreaming === 'function') {

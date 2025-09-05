@@ -1,5 +1,9 @@
-import init, { generate } from "../pkg/infinite_sudoku.js";
+import init, { generate, get_cell_index } from "../pkg/infinite_sudoku.js";
 import glSetup from "./webgl.js";
+
+// Sudoku grid size
+const n = 2;
+const m = 2;
 
 const canvas = document.getElementsByTagName("canvas")[0];
 const [_, gl] = await Promise.all([init(), glSetup(canvas)]);
@@ -15,6 +19,19 @@ u_number_texture.loadImage("./assets/numbers1024.png", 0)
     .then(() => u_number_texture.activateMipmap());
 
 const u_sudoku = gl.texture("u_sudoku", gl.internal.NEAREST);
+
+// Generate sudoku
+let data = generate(n, m);
+console.log(data);
+
+function updateSudokuData() {
+    u_sudoku.setSourceArray(data, 9, n * m * 9, gl.internal.LUMINANCE);
+}
+updateSudokuData();
+
+const u_world_size = gl.uniform("u_world_size", "2fv", [n, m]);
+// TODO: change how the multiple sudokus are stored and handled
+
 
 /** @type {[number, number]} */
 let translate = [0.0, 0.0];
@@ -78,6 +95,60 @@ let [mx, my] = [0, 0];
 canvas.addEventListener("mousedown", (ev) => {
     if (ev.button == 0 || ev.button == 1) {
         clicked = true;
+    }
+
+    if (ev.button == 0) {
+        // matches computation of u_mouse_coords
+        let bx = (ev.clientX * pixel_ratio - 0.5 * window.innerWidth) * pixel_ratio * inv_scale + translate[0];
+        let by = (ev.clientY * pixel_ratio - 0.5 * window.innerHeight) * pixel_ratio * inv_scale - translate[1] + 1;
+
+        // get sudoku coord
+        let sx = ((Math.floor((bx - by + 6) / 12) % n) + n) % n;
+        let sy = ((Math.floor((bx + by + 9) / 12) % m) + m) % m;
+
+        // get sudoku cell index (based on uv)
+        let offset = 6 * (1 - ((sx + sy) % 2));
+        let scx = Math.floor((((bx + offset) % 12) + 12) % 12);
+        let scy = Math.floor((((by + offset) % 12) + 12) % 12);
+
+        console.log(`Clicked (${bx},${by}): sudoku (${sx},${sy}) - (${scx},${scy})`);
+        if (scx < 9 && scy < 9) {
+            // TODO: update to use new data format
+            // let i = get_cell_index(n, m, sx, sy, scx, scy);
+            let i = (sx + sy * n) * 9 * 9 + scx + scy * 9;
+            data[i] = 3;
+
+            // also set the other (not necessary in new data format)
+            // TODO: this is broken, maybe just give up on this and use the new data format instead
+            if (scx < 3 && scy < 3) {
+                sy = (sy + 1) % m;
+                scx += 6;
+                scy += 6;
+            }
+            if (scx < 3 && scy >= 6) {
+                sx = (sx + 1) % n;
+                scx += 6;
+                scy -= 6;
+            }
+            if (scx >= 6 && scy >= 6) {
+                sy = (sy - 1 + m) % m;
+                scx -= 6;
+                scy -= 6;
+            }
+            if (scx >= 6 && scy < 3) {
+                sx = (sx - 1 + n) % n;
+                scx -= 6;
+                scy += 6;
+            }
+
+            let j = (sx + sy * n) * 9 * 9 + scx + scy * 9;
+            data[j] = 3;
+
+            console.log("i:", i, ", j:", j);
+            updateSudokuData();
+        } else {
+            console.log("gray");
+        }
     }
 });
 
@@ -194,13 +265,3 @@ function tick() {
     requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
-
-// Generate sudoku
-const n = 4;
-const m = 4;
-let data = generate(n, m);
-console.log(data);
-
-const u_world_size = gl.uniform("u_world_size", "2fv", [n, m]);
-u_sudoku.setSourceArray(data, 9, n * m * 9, gl.internal.LUMINANCE);
-// TODO: change how the multiple sudokus are stored and handled
