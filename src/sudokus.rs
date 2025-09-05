@@ -51,7 +51,7 @@ impl<'a, T: Iterator<Item = usize>> Region<'a, T> {
 
 #[derive(Debug, Clone)]
 pub struct Sudoku {
-    block_start: [usize; 9],
+    pub block_start: [usize; 9],
     x: usize,
     y: usize,
 }

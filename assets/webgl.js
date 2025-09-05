@@ -19,8 +19,9 @@ function oopsie(message) {
  */
 export default async function glSetup(canvas) {
     // Get WebGL context
-    const gl = canvas.getContext("webgl", { antialias: true, premultipliedAlpha: false })
+    const gl = canvas.getContext("webgl2", { antialias: true, premultipliedAlpha: false })
         ?? oopsie("Unable to initialize WebGL. Your browser may not support WebGL.");
+    console.log(gl instanceof WebGL2RenderingContext);
 
     // Setup viewport
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);

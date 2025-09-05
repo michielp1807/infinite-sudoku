@@ -1,8 +1,9 @@
-#version 100
+#version 300 es
 
 precision highp float;
 
-varying vec2 v_uv;
+in vec2 v_uv;
+out vec4 frag_color;
 
 uniform vec2 u_mouse_coords;
 uniform sampler2D u_numbers_texture;
@@ -76,18 +77,23 @@ void main() {
 	vec2 uv = sudoku_uv;
 	uv.y += sudoku_coord.x + sudoku_coord.y * u_world_size.x;
 	uv.y /= u_world_size.x * u_world_size.y;
-	int number = int(255.0 * texture2D(u_sudoku, uv));
+	int cell_data = int(255.0 * texture(u_sudoku, uv));
+	bool user_entered = (cell_data & 16) > 0;
+
+	int number = cell_data & 15;
 	vec2 block_uv = (mod(v_uv / 3.0, 1.0) - 0.5) * 1.01 + 0.5; // slightly scale down blocks to account for thicker border
 	vec2 num_uv = mod(block_uv * 3.0, 1.0) * THIRD;
 	num_uv += vec2(THIRD * mod(float(number - 1), 3.0), THIRD * float((number - 1) / 3));
 
-	vec4 num = texture2D(u_numbers_texture, num_uv);
+	vec4 num = texture(u_numbers_texture, num_uv);
 	float num_bolder = num.r;
 	float num_bold = num.g;
 	float num_normal = num.b;
 
+	float num_text = mix(num_bold, num_normal, float(user_entered));
+
 	// color = mix(color, vec3(sudoku_coord / u_world_size, 0.0), 0.5);
-	color = mix(color, vec3(0.0), num_normal * float(number > 0 && number <= 9));
+	color = mix(color, vec3(0.0), num_text * float(number > 0 && number <= 9));
 
 	// add cell grid
 	float grid_thickness = 0.01;
@@ -108,5 +114,5 @@ void main() {
 	block_border = smoothstep(grid_thickness + grid_blur, grid_thickness, block_border);
 	color = mix(color, vec3(0.0), grid_opacity * block_border);
 
-	gl_FragColor = vec4(color, 1.0);
+	frag_color = vec4(color, 1.0);
 }
