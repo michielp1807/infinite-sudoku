@@ -236,13 +236,13 @@ impl SudokuGrid {
             .flat_map(move |s| (0..9).flat_map(move |y| self.row(&s, y).values().copied()))
     }
 
-    pub fn block(&self, sudoku: &Sudoku, i: usize) -> Region<impl Iterator<Item = usize>> {
+    pub fn block(&self, sudoku: &Sudoku, i: usize) -> Region<'_, impl Iterator<Item = usize>> {
         debug_assert!(i < 9, "block index out of bounds");
         let start = sudoku.block_start[i];
         Region(self, start..(start + 9))
     }
 
-    pub fn row(&self, sudoku: &Sudoku, y: usize) -> Region<impl Iterator<Item = usize>> {
+    pub fn row(&self, sudoku: &Sudoku, y: usize) -> Region<'_, impl Iterator<Item = usize>> {
         debug_assert!(y < 9, "row index out of bounds");
         let first_block = (y / 3) * 3;
         let blocks = [
@@ -260,7 +260,7 @@ impl SudokuGrid {
         )
     }
 
-    pub fn column(&self, sudoku: &Sudoku, x: usize) -> Region<impl Iterator<Item = usize>> {
+    pub fn column(&self, sudoku: &Sudoku, x: usize) -> Region<'_, impl Iterator<Item = usize>> {
         debug_assert!(x < 9, "column index out of bounds");
         let first_block = x / 3;
         let blocks = [
@@ -288,21 +288,21 @@ impl SudokuGrid {
     }
 
     /// Get row for cell index
-    pub fn row_for(&self, sudoku: &Sudoku, i: usize) -> Region<impl Iterator<Item = usize>> {
+    pub fn row_for(&self, sudoku: &Sudoku, i: usize) -> Region<'_, impl Iterator<Item = usize>> {
         let block = self.block_index_for(sudoku, i);
         let row = (i % 9) / 3 + block / 3 * 3;
         self.row(sudoku, row)
     }
 
     /// Get column for cell index
-    pub fn column_for(&self, sudoku: &Sudoku, i: usize) -> Region<impl Iterator<Item = usize>> {
+    pub fn column_for(&self, sudoku: &Sudoku, i: usize) -> Region<'_, impl Iterator<Item = usize>> {
         let block = self.block_index_for(sudoku, i);
         let column = i % 3 + (block % 3) * 3;
         self.column(sudoku, column)
     }
 
     /// Get block for cell index
-    pub fn block_for(&self, sudoku: &Sudoku, i: usize) -> Region<impl Iterator<Item = usize>> {
+    pub fn block_for(&self, sudoku: &Sudoku, i: usize) -> Region<'_, impl Iterator<Item = usize>> {
         self.block(sudoku, self.block_index_for(sudoku, i))
     }
 
