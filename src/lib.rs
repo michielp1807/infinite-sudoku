@@ -12,6 +12,11 @@ extern "C" {
     fn random() -> f64;
 }
 
+// Console log with format string
+macro_rules! log {
+    ($($arg:tt)*) => (log(&format!($($arg)*)))
+}
+
 pub fn random_int(max: usize) -> usize {
     ((max as f64) * random()) as usize
 }
@@ -45,7 +50,7 @@ pub fn generate(n: usize, m: usize) -> Box<[u8]> {
             let backtracks = DfsBlock::new(&sg, &sudoku, BOTTOM_LEFT_BLOCK, &random_values)
                 .next_solution(&mut sg)
                 .unwrap_or_else(|_| panic!("Could not solve\n{sg:?}"));
-            log(format!("Sudoku ({x}, {y}) bottom left: {backtracks} backtracks").as_str());
+            log!("Sudoku ({x}, {y}) bottom left: {backtracks} backtracks");
         }
 
         for y in 0..m {
@@ -86,11 +91,11 @@ pub fn generate(n: usize, m: usize) -> Box<[u8]> {
                     backtracks += 1;
                 }
             }
-            log(format!("Sudoku ({x}, {y}) bottom right: {backtracks} block backtracks").as_str());
+            log!("Sudoku ({x}, {y}) bottom right: {backtracks} block backtracks");
         }
     }
 
-    log(format!("{sg:?}").as_str());
+    log!("{sg:?}");
 
     // solve sudokus
     // (I assume it is always possible to solve them with any valid corner blocks)
@@ -100,13 +105,13 @@ pub fn generate(n: usize, m: usize) -> Box<[u8]> {
             let backtracks = sg
                 .depth_first_solve(&sg.sudoku(x, y))
                 .expect("sudoku should be solvable");
-            log(format!("Sudoku ({x}, {y}) solve: {backtracks} backtracks").as_str());
+            log!("Sudoku ({x}, {y}) solve: {backtracks} backtracks");
             solve_total_backtracks += backtracks;
         }
     }
 
-    log(format!("{sg:?}").as_str());
-    log(format!("solve_total_backtracks: {solve_total_backtracks}").as_str());
+    log!("{sg:?}");
+    log!("solve_total_backtracks: {solve_total_backtracks}");
 
     // punch holes
 
