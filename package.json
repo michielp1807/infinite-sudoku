@@ -1,0 +1,20 @@
+{
+  "name": "infinite-sudoku",
+  "version": "1.0.0",
+  "description": "An infinite sudoku, solvable in a finite amount of time!",
+  "main": "index.html",
+  "scripts": {
+    "test": "cargo test",
+    "build": "wasm-pack build --target web --no-pack && rm pkg/.gitignore",
+    "serve": "http-server -c1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/michielp1807/infinite-sudoku.git"
+  },
+  "author": "michielp1807",
+  "bugs": {
+    "url": "https://github.com/michielp1807/infinite-sudoku/issues"
+  },
+  "homepage": "https://github.com/michielp1807/infinite-sudoku#readme"
+}
