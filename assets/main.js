@@ -2,8 +2,8 @@ import init, { generate, get_cell_index } from "../pkg/infinite_sudoku.js";
 import glSetup from "./webgl.js";
 
 // Sudoku grid size
-const n = 2;
-const m = 2;
+const n = 3;
+const m = 3;
 
 const canvas = document.getElementsByTagName("canvas")[0];
 const [_, gl] = await Promise.all([init(), glSetup(canvas)]);
@@ -25,7 +25,7 @@ let data = generate(n, m);
 console.log(data);
 
 function updateSudokuData() {
-    u_sudoku.setSourceArray(data, 9, n * m * 9, gl.internal.LUMINANCE);
+    u_sudoku.setSourceArray(data, 7 * 9, n * m, gl.internal.LUMINANCE);
 }
 updateSudokuData();
 
