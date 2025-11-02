@@ -82,6 +82,19 @@ function getDataViewMemory0() {
     }
     return cachedDataViewMemory0;
 }
+/**
+ * @param {number} n
+ * @param {number} m
+ * @param {number} sx
+ * @param {number} sy
+ * @param {number} scx
+ * @param {number} scy
+ * @returns {number}
+ */
+export function get_cell_index(n, m, sx, sy, scx, scy) {
+    const ret = wasm.get_cell_index(n, m, sx, sy, scx, scy);
+    return ret >>> 0;
+}
 
 function getArrayU8FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
@@ -98,20 +111,6 @@ export function generate(n, m) {
     var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     return v1;
-}
-
-/**
- * @param {number} n
- * @param {number} m
- * @param {number} sx
- * @param {number} sy
- * @param {number} scx
- * @param {number} scy
- * @returns {number}
- */
-export function get_cell_index(n, m, sx, sy, scx, scy) {
-    const ret = wasm.get_cell_index(n, m, sx, sy, scx, scy);
-    return ret >>> 0;
 }
 
 async function __wbg_load(module, imports) {

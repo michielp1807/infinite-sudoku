@@ -1,10 +1,10 @@
 /* tslint:disable */
 /* eslint-disable */
+export function get_cell_index(n: number, m: number, sx: number, sy: number, scx: number, scy: number): number;
 /**
  * Generate a solved sudoku based on random input data
  */
 export function generate(n: number, m: number): Uint8Array;
-export function get_cell_index(n: number, m: number, sx: number, sy: number, scx: number, scy: number): number;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 

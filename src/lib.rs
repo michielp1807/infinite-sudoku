@@ -110,9 +110,8 @@ pub fn generate(n: usize, m: usize) -> Box<[u8]> {
     log!("solve_total_backtracks: {solve_total_backtracks}");
 
     // punch holes
-    /*
     let mut indexes = (0..sg.cells.len()).collect::<Vec<usize>>();
-    while indexes.len() > 0 {
+    while !indexes.is_empty() {
         let i = indexes.swap_remove(random_int(indexes.len()));
 
         let prev = sg.cells[i];
@@ -165,7 +164,7 @@ pub fn generate(n: usize, m: usize) -> Box<[u8]> {
             log!("Punching holes: reverted");
         }
     }
-    */
+
     sg.cells
 }
 

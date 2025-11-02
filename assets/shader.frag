@@ -58,17 +58,12 @@ void main() {
 
 	// TODO: highlight errors (put extra bits in sudoku texture)
 
-	// TODO: this is just to make webgl stop complaining about inputs that were optimized away
-	color = mix(color, vec3(u_mouse_coords, 0.0), 0.000001);
-
-	// TODO: re-implement hover colors (or change it to a selected cell instead of hovered based on mouse coords?)
+	// highlight selected sudoku(s)
 	// bool is_hovered_sudoku = m_sudoku_coord == sudoku_coord || m_sudoku_coord == sudoku_coord2 || m_sudoku_coord2 == sudoku_coord || m_sudoku_coord2 == sudoku_coord2;
 	// is_hovered_sudoku = is_hovered_sudoku && !(m_sudoku_uv.x > 1.0 || m_sudoku_uv.y > 1.0);
-
-	// highlight currently hovered sudoku(s)
 	// color = mix(color, HIGHLIGHT_COLOR, 0.2 * float(is_hovered_sudoku));
 
-	// highlight hovered row/column/block
+	// highlight selected row/column/block
 	// vec2 cell_coord = floor(v_uv);
 	// vec2 mouse_cell = floor(u_mouse_coords);
 	// vec2 block = floor(v_uv / 3.0);
@@ -76,9 +71,12 @@ void main() {
 	// color = mix(color, HIGHLIGHT_COLOR, 0.4 * float(is_hovered_sudoku &&
 	// 	(mouse_cell.x == cell_coord.x || mouse_cell.y == cell_coord.y || block == mouse_block)));
 
-	// highlight hovered cell
+	// highlight selected cell
 	// color = mix(color, HIGHLIGHT_COLOR, float(mouse_cell == cell_coord));
 	// color = mix(color, vec3(sudoku_coord / u_world_size, 0.0), 0.5);
+
+	// highlight hovered cell
+	color = mix(color, vec3(0.0), 0.1 * float(floor(u_mouse_coords) == floor(v_uv)));
 
 	// add number in cell
 	float sudoku_index = sudoku_coord.x + sudoku_coord.y * u_world_size.x;
