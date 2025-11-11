@@ -97,22 +97,49 @@ canvas.addEventListener("mousedown", (ev) => {
     if (ev.button == 0 || ev.button == 1) {
         clicked = true;
     }
+});
+
+document.addEventListener("mousemove", (ev) => {
+    const x = ev.clientX * pixel_ratio;
+    const y = ev.clientY * pixel_ratio;
+
+    if (ev.buttons == 0) { // no mouse buttons pressed
+        clicked = false;
+        dragging = false;
+    }
+
+    if (clicked) {
+        dragging = true;
+        // Click & drag to pan view
+        let dx = x - mx;
+        let dy = y - my;
+        translate[0] -= dx * inv_scale;
+        translate[1] += dy * inv_scale;
+        u_translate.set(translate);
+        u_selected_cell.set([Infinity, Infinity]);
+    }
+
+    [mx, my] = [x, y];
+});
+
+
+document.addEventListener("mouseup", (ev) => {
+    if (dragging) {
+        clicked = false;
+        dragging = false;
+        return;
+    }
 
     if (ev.button == 0) {
+        // set selected cell
         // matches computation of u_mouse_coords
-        let bx =
-            (ev.clientX * pixel_ratio - 0.5 * window.innerWidth) *
-            pixel_ratio * inv_scale +
-            translate[0];
-        let by =
-            (ev.clientY * pixel_ratio - 0.5 * window.innerHeight) *
-            pixel_ratio *
-            inv_scale -
-            translate[1] +
-            1;
+        // TODO: make also work for touchscreens
+        let bx = (ev.clientX * pixel_ratio - 0.5 * window.innerWidth) * pixel_ratio * inv_scale + translate[0];
+        let by = (ev.clientY * pixel_ratio - 0.5 * window.innerHeight) * pixel_ratio * inv_scale - translate[1] + 1;
 
         u_selected_cell.set([bx, by]);
 
+        // increase cell value (TEMP)
         let fb4x = Math.floor((((bx % 12) + 12) % 12) / 3);
         let fb4y = Math.floor((((by % 12) + 12) % 12) / 3);
         console.log(`Clicked (${bx}, ${by}), (${fb4x}, ${fb4y})`);
@@ -137,9 +164,6 @@ canvas.addEventListener("mousedown", (ev) => {
         sy = ((Math.floor(sy + 0.5) % m) + m) % m;
 
         // get sudoku cell index (based on uv)
-        // let offset = 6 * (1 - ((sx + sy) % 2));
-        // let scx = Math.floor((((bx + offset - 6) % 12) + 12) % 12);
-        // let scy = Math.floor((((by + offset + 3) % 12) + 12) % 12);
         let scx = ((Math.floor(bx + 6 * +top_left - 6 * +top_right - 6 * +bottom_right) % 12) + 12) % 12;
         let scy = ((Math.floor(by - 3 + 6 * +top_left + 6 * +top_right - 6 * +bottom_right) % 12) + 12) % 12;
 
@@ -154,36 +178,6 @@ canvas.addEventListener("mousedown", (ev) => {
         data[i] = (((data[i] + 1) % 16) % 10) + 16;
 
         updateSudokuData();
-    }
-});
-
-document.addEventListener("mousemove", (ev) => {
-    const x = ev.clientX * pixel_ratio;
-    const y = ev.clientY * pixel_ratio;
-
-    if (ev.buttons == 0) { // no mouse buttons pressed
-        clicked = false;
-        dragging = false;
-    }
-
-    if (clicked) {
-        dragging = true;
-        // Click & drag to pan view
-        let dx = x - mx;
-        let dy = y - my;
-        translate[0] -= dx * inv_scale;
-        translate[1] += dy * inv_scale;
-        u_translate.set(translate);
-    }
-
-    [mx, my] = [x, y];
-});
-
-document.addEventListener("mouseup", (ev) => {
-    if (dragging) {
-        clicked = false;
-        dragging = false;
-        return;
     }
 });
 
@@ -205,7 +199,6 @@ function computeTouchCenter(touches) {
 }
 
 let td = 0; // distance between touches (for pinch zoom)
-let tid = 0; // touch ID for moving
 canvas.addEventListener("touchstart", (ev) => {
     ev.preventDefault();
 
