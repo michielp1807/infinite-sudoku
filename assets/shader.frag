@@ -6,6 +6,7 @@ in vec2 v_uv;
 out vec4 frag_color;
 
 uniform vec2 u_mouse_coords;
+uniform vec2 u_selected_cell;
 uniform sampler2D u_numbers_texture;
 uniform sampler2D u_sudoku;
 uniform float u_inv_scale;
@@ -39,7 +40,6 @@ void main() {
 	sudoku_coord += vec2(0.0, 1.0) * top_left;
 	sudoku_coord += vec2(1.0, 0.0) * top_right;
 	sudoku_coord += vec2(0.0, -1.0) * bottom_right;
-	sudoku_coord = rounded_mod(sudoku_coord, u_world_size);
 
 	// 0..9 sudoku uv (regular coordinates)
 	vec2 sudoku_uv = v_uv - vec2(0.0, 3.0)
@@ -59,26 +59,43 @@ void main() {
 	// TODO: highlight errors (put extra bits in sudoku texture)
 
 	// highlight selected sudoku(s)
-	// bool is_hovered_sudoku = m_sudoku_coord == sudoku_coord || m_sudoku_coord == sudoku_coord2 || m_sudoku_coord2 == sudoku_coord || m_sudoku_coord2 == sudoku_coord2;
-	// is_hovered_sudoku = is_hovered_sudoku && !(m_sudoku_uv.x > 1.0 || m_sudoku_uv.y > 1.0);
-	// color = mix(color, HIGHLIGHT_COLOR, 0.2 * float(is_hovered_sudoku));
+	vec2 selected_fb4x4 = floor(mod(u_selected_cell, 12.0) / 3.0);
+	vec2 selected_sudoku = floor(u_selected_cell / 12.0);
+	selected_sudoku = vec2(selected_sudoku.x - selected_sudoku.y, -selected_sudoku.x - selected_sudoku.y);
+	selected_sudoku += vec2(0.0, 1.0) * float(selected_fb4x4.x == 0.0 && selected_fb4x4.y < 2.0);
+	selected_sudoku += vec2(1.0, 0.0) * float(selected_fb4x4.x >= 2.0 && selected_fb4x4.y < 2.0);
+	selected_sudoku += vec2(0.0, -1.0) * float(selected_fb4x4.x == 3.0 && selected_fb4x4.y == 3.0);
+	vec2 selected_sudoku2 = selected_sudoku;
+	selected_sudoku += vec2(0.0, -1.0) * float(
+		(selected_fb4x4.x == 0.0 && selected_fb4x4.y == 1.0) || (selected_fb4x4.x == 2.0 && selected_fb4x4.y == 3.0)
+	);
+	selected_sudoku += vec2(-1.0, 0.0) * float(
+		(selected_fb4x4.x == 0.0 && selected_fb4x4.y == 3.0) || (selected_fb4x4.x == 2.0 && selected_fb4x4.y == 1.0)
+	);
+	vec2 sudoku_coord2 = sudoku_coord;
+	sudoku_coord2 += vec2(0.0, -1.0) * float((fb4x4.x == 0.0 && fb4x4.y == 1.0) || (fb4x4.x == 2.0 && fb4x4.y == 3.0));
+	sudoku_coord2 += vec2(-1.0, 0.0) * float((fb4x4.x == 0.0 && fb4x4.y == 3.0) || (fb4x4.x == 2.0 && fb4x4.y == 1.0));
+
+	bool is_hovered_sudoku = selected_sudoku == sudoku_coord || selected_sudoku2 == sudoku_coord || selected_sudoku == sudoku_coord2 || selected_sudoku2 == sudoku_coord2;
+	is_hovered_sudoku = is_hovered_sudoku && !((selected_fb4x4.x == 1.0 && selected_fb4x4.y == 0.0) || (selected_fb4x4.x == 3.0 && selected_fb4x4.y == 2.0));
+	color = mix(color, HIGHLIGHT_COLOR, 0.2 * float(is_hovered_sudoku));
 
 	// highlight selected row/column/block
-	// vec2 cell_coord = floor(v_uv);
-	// vec2 mouse_cell = floor(u_mouse_coords);
-	// vec2 block = floor(v_uv / 3.0);
-	// vec2 mouse_block = floor(u_mouse_coords / 3.0);
-	// color = mix(color, HIGHLIGHT_COLOR, 0.4 * float(is_hovered_sudoku &&
-	// 	(mouse_cell.x == cell_coord.x || mouse_cell.y == cell_coord.y || block == mouse_block)));
+	vec2 cell_coord = floor(v_uv);
+	vec2 selected_cell = floor(u_selected_cell);
+	vec2 block_coord = floor(v_uv / 3.0);
+	vec2 selected_block = floor(u_selected_cell / 3.0);
+	color = mix(color, HIGHLIGHT_COLOR, 0.4 * float(is_hovered_sudoku &&
+		(selected_cell.x == cell_coord.x || selected_cell.y == cell_coord.y || block_coord == selected_block)));
 
 	// highlight selected cell
-	// color = mix(color, HIGHLIGHT_COLOR, float(mouse_cell == cell_coord));
-	// color = mix(color, vec3(sudoku_coord / u_world_size, 0.0), 0.5);
+	color = mix(color, HIGHLIGHT_COLOR, float(selected_cell == cell_coord));
 
 	// highlight hovered cell
-	color = mix(color, vec3(0.0), 0.1 * float(floor(u_mouse_coords) == floor(v_uv)));
+	color = mix(color, vec3(0.0), 0.1 * float(floor(u_mouse_coords) == cell_coord));
 
 	// add number in cell
+	sudoku_coord = rounded_mod(sudoku_coord, u_world_size);
 	float sudoku_index = sudoku_coord.x + sudoku_coord.y * u_world_size.x;
 	sudoku_index /= u_world_size.x * u_world_size.y;
 	int cell_data = int(255.0 * texture(u_sudoku, vec2(index / 7.0 / 9.0, sudoku_index)));

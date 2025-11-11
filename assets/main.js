@@ -13,6 +13,7 @@ const u_window_resolution = gl.uniform("u_window_resolution", "2fv",
     [window.innerWidth * pixel_ratio, window.innerHeight * pixel_ratio]);
 
 const u_mouse_coords = gl.uniform("u_mouse_coords", "2fv", [0, 0]);
+const u_selected_cell = gl.uniform("u_selected_cell", "2fv", [Infinity, Infinity]);
 
 const u_number_texture = gl.texture("u_numbers_texture");
 u_number_texture.loadImage("./assets/numbers1024.png", 0)
@@ -101,8 +102,7 @@ canvas.addEventListener("mousedown", (ev) => {
         // matches computation of u_mouse_coords
         let bx =
             (ev.clientX * pixel_ratio - 0.5 * window.innerWidth) *
-            pixel_ratio *
-            inv_scale +
+            pixel_ratio * inv_scale +
             translate[0];
         let by =
             (ev.clientY * pixel_ratio - 0.5 * window.innerHeight) *
@@ -111,12 +111,13 @@ canvas.addEventListener("mousedown", (ev) => {
             translate[1] +
             1;
 
+        u_selected_cell.set([bx, by]);
+
         let fb4x = Math.floor((((bx % 12) + 12) % 12) / 3);
         let fb4y = Math.floor((((by % 12) + 12) % 12) / 3);
         console.log(`Clicked (${bx}, ${by}), (${fb4x}, ${fb4y})`);
 
         if ((fb4x == 1 && fb4y == 0) || (fb4x == 3 && fb4y == 2)) {
-            console.log("gray");
             return;
         }
 
@@ -150,7 +151,7 @@ canvas.addEventListener("mousedown", (ev) => {
             return;
         }
 
-        data[i] = ((data[i] % 16) % 9) + 1 + 16;
+        data[i] = (((data[i] + 1) % 16) % 10) + 16;
 
         updateSudokuData();
     }
