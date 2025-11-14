@@ -7,13 +7,15 @@ out vec4 frag_color;
 
 uniform vec2 u_mouse_coords;
 uniform vec2 u_selected_cell;
+uniform int u_selected_value;
 uniform sampler2D u_numbers_texture;
 uniform sampler2D u_sudoku;
 uniform float u_inv_scale;
 uniform vec2 u_world_size;
 
 const float THIRD = 1.0 / 3.0;
-const vec3 HIGHLIGHT_COLOR = vec3(0.23, 0.69, 1.0);
+const vec3 CELL_HIGHLIGHT = vec3(0.23, 0.69, 1.0);
+const vec3 NUMBER_HIGHLIGHT = vec3(0.0, 0.22, 0.58);
 
 // prevent floating point errors by rounding values
 vec2 rounded_mod(vec2 a, vec2 b) {
@@ -78,18 +80,18 @@ void main() {
 
 	bool is_hovered_sudoku = selected_sudoku == sudoku_coord || selected_sudoku2 == sudoku_coord || selected_sudoku == sudoku_coord2 || selected_sudoku2 == sudoku_coord2;
 	is_hovered_sudoku = is_hovered_sudoku && !((selected_fb4x4.x == 1.0 && selected_fb4x4.y == 0.0) || (selected_fb4x4.x == 3.0 && selected_fb4x4.y == 2.0));
-	color = mix(color, HIGHLIGHT_COLOR, 0.2 * float(is_hovered_sudoku));
+	color = mix(color, CELL_HIGHLIGHT, 0.2 * float(is_hovered_sudoku));
 
 	// highlight selected row/column/block
 	vec2 cell_coord = floor(v_uv);
 	vec2 selected_cell = floor(u_selected_cell);
 	vec2 block_coord = floor(v_uv / 3.0);
 	vec2 selected_block = floor(u_selected_cell / 3.0);
-	color = mix(color, HIGHLIGHT_COLOR, 0.4 * float(is_hovered_sudoku &&
+	color = mix(color, CELL_HIGHLIGHT, 0.4 * float(is_hovered_sudoku &&
 		(selected_cell.x == cell_coord.x || selected_cell.y == cell_coord.y || block_coord == selected_block)));
 
 	// highlight selected cell
-	color = mix(color, HIGHLIGHT_COLOR, float(selected_cell == cell_coord));
+	color = mix(color, CELL_HIGHLIGHT, float(selected_cell == cell_coord));
 
 	// highlight hovered cell
 	color = mix(color, vec3(0.0), 0.1 * float(floor(u_mouse_coords) == cell_coord));
@@ -113,7 +115,9 @@ void main() {
 
 	float num_text = mix(num_bold, num_normal, float(user_entered));
 
-	color = mix(color, vec3(0.0), num_text * float(number > 0 && number <= 9));
+	vec3 num_color = mix(vec3(0.0), NUMBER_HIGHLIGHT, float(number == u_selected_value));
+
+	color = mix(color, num_color, num_text * float(number > 0 && number <= 9));
 
 	// add cell grid
 	float grid_thickness = 0.01;

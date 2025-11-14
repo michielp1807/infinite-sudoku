@@ -116,6 +116,8 @@ export default async function glSetup(canvas) {
             // @ts-ignore
             const setter = gl["uniform" + type].bind(gl);
             let current_value = initial_value;
+            /**@type {null | function(UniformValue<T>): void} */
+            let on_change = null;
             const uniform = {
                 /**
                  * @param {UniformValue<T>} value 
@@ -123,6 +125,7 @@ export default async function glSetup(canvas) {
                 set(value) {
                     current_value = value;
                     setter(location, value);
+                    on_change?.(value);
                 },
                 /**
                  * @param {function(UniformValue<T>): UniformValue<T>} fun 
@@ -130,12 +133,19 @@ export default async function glSetup(canvas) {
                 setf(fun) {
                     current_value = fun(current_value);
                     setter(location, current_value);
+                    on_change?.(current_value);
                 },
                 /**
                  * @return {UniformValue<T>} value 
                  */
                 get() {
                     return current_value;
+                },
+                /**
+                 * @param {function(UniformValue<T>)} fun 
+                 */
+                onchange(fun) {
+                    on_change = fun;
                 }
             }
 
