@@ -97,8 +97,8 @@ void main() {
 	// add number in cell
 	sudoku_coord = rounded_mod(sudoku_coord, u_world_size);
 	float sudoku_index = sudoku_coord.x + sudoku_coord.y * u_world_size.x;
-	sudoku_index /= u_world_size.x * u_world_size.y;
-	int cell_data = int(255.0 * texture(u_sudoku, vec2(index / 7.0 / 9.0, sudoku_index)));
+	sudoku_index /= u_world_size.x * u_world_size.y - 1.0;
+	int cell_data = int(255.0 * texture(u_sudoku, vec2(index / (7.0 * 9.0 - 1.0), sudoku_index)));
 	bool user_entered = (cell_data & 16) > 0;
 
 	int number = cell_data & 15;
