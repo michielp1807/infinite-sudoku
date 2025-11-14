@@ -125,6 +125,13 @@ export default async function glSetup(canvas) {
                     setter(location, value);
                 },
                 /**
+                 * @param {function(UniformValue<T>): UniformValue<T>} fun 
+                 */
+                setf(fun) {
+                    current_value = fun(current_value);
+                    setter(location, current_value);
+                },
+                /**
                  * @return {UniformValue<T>} value 
                  */
                 get() {

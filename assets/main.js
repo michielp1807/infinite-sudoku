@@ -31,11 +31,9 @@ updateSudokuData();
 
 gl.uniform("u_world_size", "2fv", [n, m]);
 
-/** @type {[number, number]} */
-let translate = [0.0, 0.0];
 let inv_scale_factor = 1;
 let inv_scale = 2 ** inv_scale_factor * 3 / 256;
-const u_translate = gl.uniform("u_translate", "2fv", translate);
+const u_translate = gl.uniform("u_translate", "2fv", [0.0, 0.0]);
 const u_inv_scale = gl.uniform("u_inv_scale", "1f", inv_scale);
 
 /**
@@ -61,11 +59,9 @@ function zoomInTo(zoom_delta, client_x, client_y) {
     u_inv_scale.set(inv_scale);
     const d_inv_scale = (inv_scale - old_inv_scale) / old_inv_scale;
 
-    const x = (client_x - 0.5 * window.innerWidth) * old_inv_scale;
-    const y = (client_y - 0.5 * window.innerHeight) * old_inv_scale;
-    translate[0] -= d_inv_scale * x;
-    translate[1] += d_inv_scale * y;
-    u_translate.set(translate);
+    const dx = (client_x - 0.5 * window.innerWidth) * old_inv_scale;
+    const dy = (client_y - 0.5 * window.innerHeight) * old_inv_scale;
+    u_translate.setf(([x, y]) => [x - d_inv_scale * dx, y + d_inv_scale * dy]);
 }
 
 document.addEventListener("wheel", (ev) => {
@@ -77,10 +73,10 @@ document.addEventListener("wheel", (ev) => {
  * @type {Object.<string, (ev: KeyboardEvent) => void>}
  */
 const key_handlers = {
-    "ArrowLeft": () => { translate[0] -= 0.333 * 128 * inv_scale; u_translate.set(translate); },
-    "ArrowRight": () => { translate[0] += 0.333 * 128 * inv_scale; u_translate.set(translate); },
-    "ArrowUp": () => { translate[1] += 0.333 * 128 * inv_scale; u_translate.set(translate); },
-    "ArrowDown": () => { translate[1] -= 0.333 * 128 * inv_scale; u_translate.set(translate); },
+    "ArrowLeft": () => { u_translate.setf(([x, y]) => [x - 1, y]); u_selected_cell.setf(([x, y]) => [x - 1, y]); },
+    "ArrowRight": () => { u_translate.setf(([x, y]) => [x + 1, y]); u_selected_cell.setf(([x, y]) => [x + 1, y]); },
+    "ArrowUp": () => { u_translate.setf(([x, y]) => [x, y + 1]); u_selected_cell.setf(([x, y]) => [x, y - 1]); },
+    "ArrowDown": () => { u_translate.setf(([x, y]) => [x, y - 1]); u_selected_cell.setf(([x, y]) => [x, y + 1]); },
     "-": () => zoomInTo(-1, mx, my),
     "+": () => zoomInTo(1, mx, my),
     "=": () => zoomInTo(1, mx, my),
@@ -122,9 +118,7 @@ document.addEventListener("mousemove", (ev) => {
         // Click & drag to pan view
         let dx = x - mx;
         let dy = y - my;
-        translate[0] -= dx * inv_scale;
-        translate[1] += dy * inv_scale;
-        u_translate.set(translate);
+        u_translate.setf(([x, y]) => [x - dx * inv_scale, y + dy * inv_scale]);
     }
 
     [mx, my] = [x, y];
@@ -142,8 +136,9 @@ document.addEventListener("mouseup", (ev) => {
         // set selected cell
         // matches computation of u_mouse_coords
         // TODO: make also work for touchscreens
-        let bx = (ev.clientX * pixel_ratio - 0.5 * window.innerWidth) * pixel_ratio * inv_scale + translate[0];
-        let by = (ev.clientY * pixel_ratio - 0.5 * window.innerHeight) * pixel_ratio * inv_scale - translate[1] + 1;
+        let [tx, ty] = u_translate.get();
+        let bx = (ev.clientX * pixel_ratio - 0.5 * window.innerWidth) * pixel_ratio * inv_scale + tx;
+        let by = (ev.clientY * pixel_ratio - 0.5 * window.innerHeight) * pixel_ratio * inv_scale - ty + 1;
 
         u_selected_cell.set([bx, by]);
     }
@@ -233,9 +228,7 @@ document.addEventListener("touchmove", (ev) => {
     let [cx, cy] = computeTouchCenter(ev.touches);
     let dx = cx - mx;
     let dy = cy - my;
-    translate[0] -= dx * inv_scale;
-    translate[1] += dy * inv_scale;
-    u_translate.set(translate);
+    u_translate.setf(([x, y]) => [x - dx * inv_scale, y + dy * inv_scale]);
 
     [mx, my] = [cx, cy];
 
@@ -269,10 +262,10 @@ resize();
 // WebGL draw loop
 function tick() {
     // map mouse screen coordinates to cell coordinates
-    let bx = (mx - 0.5 * window.innerWidth * pixel_ratio) * inv_scale + translate[0];
-    let by = (my - 0.5 * window.innerHeight * pixel_ratio) * inv_scale - translate[1] + 1;
+    let [tx, ty] = u_translate.get();
+    let bx = (mx - 0.5 * window.innerWidth * pixel_ratio) * inv_scale + tx;
+    let by = (my - 0.5 * window.innerHeight * pixel_ratio) * inv_scale - ty + 1;
     u_mouse_coords.set([bx, by]);
-    // TODO: don't change highlighted cell when cell is selected for number input
 
     gl.draw();
 
