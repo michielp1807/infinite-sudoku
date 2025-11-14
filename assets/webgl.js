@@ -115,12 +115,20 @@ export default async function glSetup(canvas) {
 
             // @ts-ignore
             const setter = gl["uniform" + type].bind(gl);
+            let current_value = initial_value;
             const uniform = {
                 /**
                  * @param {UniformValue<T>} value 
                  */
                 set(value) {
+                    current_value = value;
                     setter(location, value);
+                },
+                /**
+                 * @return {UniformValue<T>} value 
+                 */
+                get() {
+                    return current_value;
                 }
             }
 

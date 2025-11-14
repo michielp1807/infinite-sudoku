@@ -2,8 +2,7 @@ import init, { generate, get_cell_index } from "../pkg/infinite_sudoku.js";
 import glSetup from "./webgl.js";
 
 // Sudoku grid size
-const n = 3;
-const m = 3;
+const [n, m] = [3, 3];
 
 const canvas = document.getElementsByTagName("canvas")[0];
 const [_, gl] = await Promise.all([init(), glSetup(canvas)]);
@@ -30,9 +29,7 @@ function updateSudokuData() {
 }
 updateSudokuData();
 
-const u_world_size = gl.uniform("u_world_size", "2fv", [n, m]);
-// TODO: change how the multiple sudokus are stored and handled
-
+gl.uniform("u_world_size", "2fv", [n, m]);
 
 /** @type {[number, number]} */
 let translate = [0.0, 0.0];
@@ -87,6 +84,18 @@ const key_handlers = {
     "-": () => zoomInTo(-1, mx, my),
     "+": () => zoomInTo(1, mx, my),
     "=": () => zoomInTo(1, mx, my),
+    "1": () => setSelectedCell(1),
+    "2": () => setSelectedCell(2),
+    "3": () => setSelectedCell(3),
+    "4": () => setSelectedCell(4),
+    "5": () => setSelectedCell(5),
+    "6": () => setSelectedCell(6),
+    "7": () => setSelectedCell(7),
+    "8": () => setSelectedCell(8),
+    "9": () => setSelectedCell(9),
+    "Backspace": () => setSelectedCell(0),
+    "Delete": () => setSelectedCell(0),
+    "Escape": () => u_selected_cell.set([Infinity, Infinity]),
 }
 document.addEventListener("keydown", (ev) => key_handlers[ev.key]?.(ev));
 
@@ -116,7 +125,6 @@ document.addEventListener("mousemove", (ev) => {
         translate[0] -= dx * inv_scale;
         translate[1] += dy * inv_scale;
         u_translate.set(translate);
-        u_selected_cell.set([Infinity, Infinity]);
     }
 
     [mx, my] = [x, y];
@@ -138,48 +146,56 @@ document.addEventListener("mouseup", (ev) => {
         let by = (ev.clientY * pixel_ratio - 0.5 * window.innerHeight) * pixel_ratio * inv_scale - translate[1] + 1;
 
         u_selected_cell.set([bx, by]);
-
-        // increase cell value (TEMP)
-        let fb4x = Math.floor((((bx % 12) + 12) % 12) / 3);
-        let fb4y = Math.floor((((by % 12) + 12) % 12) / 3);
-        console.log(`Clicked (${bx}, ${by}), (${fb4x}, ${fb4y})`);
-
-        if ((fb4x == 1 && fb4y == 0) || (fb4x == 3 && fb4y == 2)) {
-            return;
-        }
-
-        const top_left = fb4x == 0 && fb4y < 2;
-        const top_right = fb4x >= 2 && fb4y < 2;
-        const bottom_right = fb4x == 3 && fb4y == 3;
-
-        // get sudoku coord
-        let fx = Math.floor(bx / 12);
-        let fy = Math.floor(by / 12);
-        let sx = fx - fy;
-        let sy = -fx - fy;
-        sy += +top_left;
-        sx += +top_right;
-        sy += -bottom_right;
-        sx = ((Math.floor(sx + 0.5) % n) + n) % n;
-        sy = ((Math.floor(sy + 0.5) % m) + m) % m;
-
-        // get sudoku cell index (based on uv)
-        let scx = ((Math.floor(bx + 6 * +top_left - 6 * +top_right - 6 * +bottom_right) % 12) + 12) % 12;
-        let scy = ((Math.floor(by - 3 + 6 * +top_left + 6 * +top_right - 6 * +bottom_right) % 12) + 12) % 12;
-
-        console.log(`Sudoku (${sx},${sy}), (${scx},${scy})`);
-
-        let i = get_cell_index(n, m, sx, sy, scx, scy);
-        if ((data[i] & 16) != 16 && data[i] != 0) {
-            console.log("cannot edit constant value", data[i]);
-            return;
-        }
-
-        data[i] = (((data[i] + 1) % 16) % 10) + 16;
-
-        updateSudokuData();
     }
 });
+
+/**
+ * Set the value of the selected cell
+ * @param {number} num 
+ */
+function setSelectedCell(num) {
+    const [bx, by] = u_selected_cell.get();
+    if (!isFinite(bx) || !isFinite(by)) {
+        return;
+    }
+
+    let fb4x = Math.floor((((bx % 12) + 12) % 12) / 3);
+    let fb4y = Math.floor((((by % 12) + 12) % 12) / 3);
+
+    if ((fb4x == 1 && fb4y == 0) || (fb4x == 3 && fb4y == 2)) {
+        return; // gray block
+    }
+
+    const top_left = fb4x == 0 && fb4y < 2;
+    const top_right = fb4x >= 2 && fb4y < 2;
+    const bottom_right = fb4x == 3 && fb4y == 3;
+
+    // get sudoku coord
+    let fx = Math.floor(bx / 12);
+    let fy = Math.floor(by / 12);
+    let sx = fx - fy;
+    let sy = -fx - fy;
+    sy += +top_left;
+    sx += +top_right;
+    sy += -bottom_right;
+    sx = ((Math.floor(sx + 0.5) % n) + n) % n;
+    sy = ((Math.floor(sy + 0.5) % m) + m) % m;
+
+    // get sudoku cell index (based on uv)
+    let scx = ((Math.floor(bx + 6 * +top_left - 6 * +top_right - 6 * +bottom_right) % 12) + 12) % 12;
+    let scy = ((Math.floor(by - 3 + 6 * +top_left + 6 * +top_right - 6 * +bottom_right) % 12) + 12) % 12;
+
+    let i = get_cell_index(n, m, sx, sy, scx, scy);
+    if ((data[i] & 16) != 16 && data[i] != 0) {
+        console.log("cannot edit constant value", data[i]);
+        return;
+    }
+
+    data[i] = (num & 15) + 16; // user-specified flag
+
+    updateSudokuData();
+
+}
 
 /**
  * Get center of touches
