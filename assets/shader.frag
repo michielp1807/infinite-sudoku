@@ -14,8 +14,15 @@ uniform float u_inv_scale;
 uniform vec2 u_world_size;
 
 const float THIRD = 1.0 / 3.0;
-const vec3 CELL_HIGHLIGHT = vec3(0.23, 0.69, 1.0);
-const vec3 NUMBER_HIGHLIGHT = vec3(0.0, 0.22, 0.58);
+
+// TODO: add dark mode?
+const vec3 col_num = vec3(0.0);
+const vec3 col_selected_num = vec3(0.0, 0.22, 0.58);
+const vec3 col_cell = vec3(1.0);
+const vec3 col_selected_cell = vec3(0.37, 0.74, 1.0);
+const vec3 col_hover = vec3(0.0);
+const vec3 col_border = vec3(0.0);
+const vec3 col_unused_block = vec3(0.83);
 
 // prevent floating point errors by rounding values
 vec2 rounded_mod(vec2 a, vec2 b) {
@@ -26,7 +33,7 @@ vec2 rounded_mod(vec2 a, vec2 b) {
 void main() {
 	float grid_blur = 1.0 * u_inv_scale;
 
-	vec3 color = vec3(1.0);
+	vec3 color = vec3(col_cell);
 
 	// the sudoku pattern repeats in 12x12 sections of 4x4 blocks
 	vec2 b4x4 = mod(v_uv, 12.0) / 3.0;
@@ -80,21 +87,18 @@ void main() {
 
 	bool is_hovered_sudoku = selected_sudoku == sudoku_coord || selected_sudoku2 == sudoku_coord || selected_sudoku == sudoku_coord2 || selected_sudoku2 == sudoku_coord2;
 	is_hovered_sudoku = is_hovered_sudoku && !((selected_fb4x4.x == 1.0 && selected_fb4x4.y == 0.0) || (selected_fb4x4.x == 3.0 && selected_fb4x4.y == 2.0));
-	color = mix(color, CELL_HIGHLIGHT, 0.2 * float(is_hovered_sudoku));
+	color = mix(color, col_selected_cell, 0.3 * float(is_hovered_sudoku));
 
 	// highlight selected row/column/block
 	vec2 cell_coord = floor(v_uv);
 	vec2 selected_cell = floor(u_selected_cell);
 	vec2 block_coord = floor(v_uv / 3.0);
 	vec2 selected_block = floor(u_selected_cell / 3.0);
-	color = mix(color, CELL_HIGHLIGHT, 0.4 * float(is_hovered_sudoku &&
+	color = mix(color, col_selected_cell, 0.4 * float(is_hovered_sudoku &&
 		(selected_cell.x == cell_coord.x || selected_cell.y == cell_coord.y || block_coord == selected_block)));
 
 	// highlight selected cell
-	color = mix(color, CELL_HIGHLIGHT, float(selected_cell == cell_coord));
-
-	// highlight hovered cell
-	color = mix(color, vec3(0.0), 0.1 * float(floor(u_mouse_coords) == cell_coord));
+	color = mix(color, col_selected_cell, float(selected_cell == cell_coord));
 
 	// add number in cell
 	sudoku_coord = rounded_mod(sudoku_coord, u_world_size);
@@ -115,30 +119,33 @@ void main() {
 
 	float num_text = mix(num_bold, num_normal, float(user_entered));
 
-	vec3 num_color = mix(vec3(0.0), NUMBER_HIGHLIGHT, float(number == u_selected_value));
+	vec3 num_color = mix(col_num, col_selected_num, float(number == u_selected_value));
 
 	color = mix(color, num_color, num_text * float(number > 0 && number <= 9));
 
+	// highlight hovered cell
+	color = mix(color, col_hover, 0.1 * float(floor(u_mouse_coords) == cell_coord));
+
 	// add cell grid
 	float grid_thickness = 0.01;
-	float grid_opacity = 1.0 - min(1.0, 7.5 * u_inv_scale);
+	float grid_opacity = max(1.0 - min(1.0, 5.0 * u_inv_scale), 0.02);
 	vec2 cell_uv = mod(v_uv, 1.0);
 	float cell_border = min(1.0 - max(cell_uv.x, cell_uv.y), min(cell_uv.x, cell_uv.y));
 	cell_border = smoothstep(grid_thickness + grid_blur, grid_thickness, cell_border);
-	color = mix(color, vec3(0.0), grid_opacity * cell_border);
+	color = mix(color, col_border, grid_opacity * cell_border);
 
 	// gray background between sudokus
-	color = mix(color, vec3(0.83), float(
+	color = mix(color, col_unused_block, float(
 		(fb4x4.x == 1.0 && fb4x4.y == 0.0) || (fb4x4.x == 3.0 && fb4x4.y == 2.0)
 	));
 
 	// add block grid
 	float grid_thickness2 = 0.03;
-	float grid_opacity2 = 1.0 - min(1.0, 10.0 * u_inv_scale);
+	float grid_opacity2 = max(1.0 - min(1.0, 7.5 * u_inv_scale), 0.04);
 	block_uv = block_uv / 3.0;
 	float block_border = 3.0 * min(1.0 - max(block_uv.x, block_uv.y), min(block_uv.x, block_uv.y));
 	block_border = smoothstep(grid_thickness2 + grid_blur, grid_thickness2, block_border);
-	color = mix(color, vec3(0.0), grid_opacity2 * block_border);
+	color = mix(color, col_border, grid_opacity2 * block_border);
 
 	frag_color = vec4(color, 1.0);
 }
