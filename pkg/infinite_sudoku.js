@@ -104,10 +104,11 @@ function getArrayU8FromWasm0(ptr, len) {
  * Generate a solved sudoku based on random input data
  * @param {number} n
  * @param {number} m
+ * @param {boolean} make_puzzle
  * @returns {Uint8Array}
  */
-export function generate(n, m) {
-    const ret = wasm.generate(n, m);
+export function generate(n, m, make_puzzle) {
+    const ret = wasm.generate(n, m, make_puzzle);
     var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     return v1;

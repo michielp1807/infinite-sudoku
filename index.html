@@ -1,66 +1,111 @@
 <!DOCTYPE html>
 <html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>Infinite Sudoku</title>
+        <link rel="shortcut icon" type="image/png" href="assets/logo.png" />
+        <meta name="viewport" content="width=device-width, user-scalable=no" />
+        <style>
+            @font-face {
+                font-family: "LT Superior";
+                src: url("assets/LTSuperior-Bold.ttf");
+                font-weight: bold;
+            }
 
-<head>
-    <meta charset="UTF-8" />
-    <title>Infinite Sudoku</title>
-    <link rel="shortcut icon" type="image/png" href="assets/logo.png" />
-    <meta name="viewport" content="width=device-width, user-scalable=no" />
-    <style>
-        body {
-            text-align: center;
-            font-family: sans-serif;
-            margin: 0;
-        }
+            @font-face {
+                font-family: "LT Superior";
+                src: url("assets/LTSuperior-Regular.ttf");
+            }
 
-        main {
-            padding: 2em;
-            margin: auto;
-            max-width: 40em;
-        }
+            body {
+                text-align: center;
+                font-family: "LT Superior", sans-serif;
+                font-size: 1.25em;
+                margin: 0;
+            }
 
-        #sudoku {
-            display: grid;
-            min-height: 18em;
-            margin: auto;
-            grid-template-columns: repeat(9, 2em);
-            place-items: center;
-            justify-content: center;
-            gap: 0em;
-        }
+            #menu-container {
+                position: fixed;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                width: 100%;
+                height: 100%;
+                background-color: #fffe;
+            }
 
-        #sudoku>div {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            outline: 1px solid #000;
-            width: 2em;
-            height: 2em;
-        }
+            main {
+                padding: 2em;
+                max-width: 15em;
+            }
 
-        canvas {
-            position: fixed;
-            inset: 0;
-            z-index: -1;
-            width: 100%;
-            height: 100%;
-        }
-    </style>
-</head>
+            hgroup {
+                text-align: left;
+                margin-bottom: 1em;
+            }
 
-<body>
-    <!-- TODO: hide main section when playing -->
-    <!-- <main>
-        <h1>Infinite Sudoku*</h1>
+            h1,
+            hgroup > p {
+                margin: 0;
+            }
 
-    <button>Play</button>
-    </main> -->
+            button {
+                width: 100%;
+                margin: 1em 0;
+                padding: 1em;
+                border-radius: 1em;
+                border: 0.2em solid black;
+                box-shadow: 0 0 1em -1em;
+                background-color: white;
+                transition: all 0.15s ease-in-out;
+                font-family: "LT Superior", sans-serif;
+                font-weight: bold;
+                font-size: 1rem;
+            }
 
-    <script src="assets/main.js" type="module"></script>
+            button:enabled {
+                cursor: pointer;
+            }
 
-    <!-- TODO: progress bar for % finished? -->
+            button:enabled:hover {
+                background-color: #f2f2f2;
+                box-shadow: 0 0 1em -0.6em;
+            }
 
-    <canvas></canvas>
-</body>
+            button:enabled:active {
+                transform: scale(0.95);
+            }
 
+            button:disabled {
+                opacity: 0.2;
+            }
+
+            canvas {
+                position: fixed;
+                inset: 0;
+                z-index: -1;
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="menu-container">
+            <main>
+                <hgroup>
+                    <h1>Infinite Sudoku</h1>
+                    <p>An infinite sudoku solvable in a finite amount of time.</p>
+                </hgroup>
+                <button id="continue" disabled>Continue</button>
+                <button id="start">Start new</button>
+            </main>
+        </div>
+
+        <script src="assets/main.js" type="module"></script>
+
+        <!-- TODO: progress bar for % finished? -->
+
+        <canvas></canvas>
+    </body>
 </html>

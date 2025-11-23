@@ -35,7 +35,7 @@ pub fn generate_random_sequence() -> impl Iterator<Item = u8> {
 
 /// Generate a solved sudoku based on random input data
 #[wasm_bindgen]
-pub fn generate(n: usize, m: usize) -> Box<[u8]> {
+pub fn generate(n: usize, m: usize, make_puzzle: bool) -> Box<[u8]> {
     console_error_panic_hook::set_once();
 
     let mut sg = SudokuGrid::new(n, m);
@@ -109,7 +109,15 @@ pub fn generate(n: usize, m: usize) -> Box<[u8]> {
     log!("{sg:?}");
     log!("solve_total_backtracks: {solve_total_backtracks}");
 
-    // punch holes
+    if make_puzzle {
+        // punch holes
+        punch_holes(&mut sg);
+    }
+
+    sg.cells
+}
+
+fn punch_holes(sg: &mut SudokuGrid) {
     let mut indexes = (0..sg.cells.len()).collect::<Vec<usize>>();
     while !indexes.is_empty() {
         let i = indexes.swap_remove(random_int(indexes.len()));
@@ -164,8 +172,6 @@ pub fn generate(n: usize, m: usize) -> Box<[u8]> {
             log!("Punching holes: reverted");
         }
     }
-
-    sg.cells
 }
 
 #[wasm_bindgen]

@@ -1,9 +1,6 @@
 import init, { generate, get_cell_index } from "../pkg/infinite_sudoku.js";
 import glSetup from "./webgl.js";
 
-// Sudoku grid size
-const [n, m] = [3, 3];
-
 const canvas = document.getElementsByTagName("canvas")[0];
 const [_, gl] = await Promise.all([init(), glSetup(canvas)]);
 
@@ -23,16 +20,36 @@ u_number_texture.loadImage("./assets/numbers1024.png", 0).then(() => u_number_te
 
 const u_sudoku = gl.texture("u_sudoku", gl.internal.NEAREST);
 
-// Generate sudoku
-let data = generate(n, m);
-console.log(data);
+// Sudoku grid size
+let [n, m] = [1, 1];
+gl.uniform("u_world_size", "2fv", [n, m]);
 
+let data = generate(1, 1, false);
+console.log(data);
 function updateSudokuData() {
     u_sudoku.setSourceArray(data, 7 * 9, n * m, gl.internal.LUMINANCE);
 }
 updateSudokuData();
 
-gl.uniform("u_world_size", "2fv", [n, m]);
+let in_menu = true;
+const start_button = /** @type {HTMLElement} */ (document.getElementById("start"));
+const continue_button = /** @type {HTMLElement} */ (document.getElementById("continue"));
+const menu_container = /** @type {HTMLElement} */ (document.getElementById("menu-container"));
+
+start_button.onclick = () => {
+    n = 3;
+    m = 3;
+
+    // Generate sudoku
+    data = generate(n, m, true);
+    console.log(data);
+    updateSudokuData();
+    gl.uniform("u_world_size", "2fv", [n, m]);
+
+    in_menu = false;
+    u_inv_scale.set(inv_scale); // reset zoom animation
+    menu_container.style.display = "none";
+};
 
 let inv_scale_factor = 1;
 let inv_scale = (2 ** inv_scale_factor * 3) / 256;
@@ -184,7 +201,7 @@ const key_handlers = {
         u_selected_cell.set([Infinity, Infinity]);
     },
 };
-canvas.addEventListener("keydown", (ev) => key_handlers[ev.key]?.(ev));
+document.addEventListener("keydown", (ev) => key_handlers[ev.key]?.(ev));
 
 let clicked = false;
 let dragging = false;
@@ -300,13 +317,21 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
-// WebGL draw loop
-function tick() {
+/**
+ * WebGL draw loop
+ * @type {FrameRequestCallback}
+ */
+function tick(time) {
     // map mouse screen coordinates to cell coordinates
     let [tx, ty] = u_translate.get();
     let bx = (mx - 0.5 * window.innerWidth * pixel_ratio) * inv_scale + tx;
     let by = (my - 0.5 * window.innerHeight * pixel_ratio) * inv_scale - ty + 1;
     u_mouse_coords.set([bx, by]);
+
+    if (in_menu) {
+        // zoom animation
+        u_inv_scale.set(inv_scale * (2 - Math.cos(0.00005 * time)));
+    }
 
     gl.draw();
 
