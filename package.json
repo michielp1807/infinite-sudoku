@@ -16,5 +16,10 @@
   "bugs": {
     "url": "https://github.com/michielp1807/infinite-sudoku/issues"
   },
-  "homepage": "https://github.com/michielp1807/infinite-sudoku#readme"
+  "homepage": "https://github.com/michielp1807/infinite-sudoku#readme",
+  "prettier": {
+    "trailingComma": "es5",
+    "printWidth": 110,
+    "tabWidth": 4
+  }
 }

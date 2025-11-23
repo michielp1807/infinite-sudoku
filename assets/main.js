@@ -7,9 +7,11 @@ const [n, m] = [3, 3];
 const canvas = document.getElementsByTagName("canvas")[0];
 const [_, gl] = await Promise.all([init(), glSetup(canvas)]);
 
-const pixel_ratio = (window.devicePixelRatio);
-const u_window_resolution = gl.uniform("u_window_resolution", "2fv",
-    [window.innerWidth * pixel_ratio, window.innerHeight * pixel_ratio]);
+const pixel_ratio = window.devicePixelRatio;
+const u_window_resolution = gl.uniform("u_window_resolution", "2fv", [
+    window.innerWidth * pixel_ratio,
+    window.innerHeight * pixel_ratio,
+]);
 
 const u_mouse_coords = gl.uniform("u_mouse_coords", "2fv", [0, 0]);
 const u_selected_cell = gl.uniform("u_selected_cell", "2fv", [Infinity, Infinity]);
@@ -17,8 +19,7 @@ const u_selected_value = gl.uniform("u_selected_value", "1i", 0);
 u_selected_cell.onchange(updateSelectedValue);
 
 const u_number_texture = gl.texture("u_numbers_texture");
-u_number_texture.loadImage("./assets/numbers1024.png", 0)
-    .then(() => u_number_texture.activateMipmap());
+u_number_texture.loadImage("./assets/numbers1024.png", 0).then(() => u_number_texture.activateMipmap());
 
 const u_sudoku = gl.texture("u_sudoku", gl.internal.NEAREST);
 
@@ -34,14 +35,14 @@ updateSudokuData();
 gl.uniform("u_world_size", "2fv", [n, m]);
 
 let inv_scale_factor = 1;
-let inv_scale = 2 ** inv_scale_factor * 3 / 256;
+let inv_scale = (2 ** inv_scale_factor * 3) / 256;
 const u_translate = gl.uniform("u_translate", "2fv", [0.0, 0.0]);
 const u_inv_scale = gl.uniform("u_inv_scale", "1f", inv_scale);
 
 /**
  * Get the cell index from a set of coordinates
- * @param {number} x 
- * @param {number} y 
+ * @param {number} x
+ * @param {number} y
  */
 function getCellIndexFromCoords(x, y) {
     if (!isFinite(x) || !isFinite(y)) {
@@ -92,7 +93,7 @@ function updateSelectedValue() {
 
 /**
  * Set the value of the selected cell
- * @param {number} num 
+ * @param {number} num
  */
 function fillSelectedCell(num) {
     const [bx, by] = u_selected_cell.get();
@@ -113,8 +114,8 @@ function fillSelectedCell(num) {
 }
 
 /**
- * @param {number} zoom_delta 
- * @param {number} client_x 
+ * @param {number} zoom_delta
+ * @param {number} client_x
  * @param {number} client_y
  */
 function zoomInTo(zoom_delta, client_x, client_y) {
@@ -131,7 +132,7 @@ function zoomInTo(zoom_delta, client_x, client_y) {
     }
 
     const old_inv_scale = inv_scale;
-    inv_scale = 2 ** inv_scale_factor * 3 / 256;
+    inv_scale = (2 ** inv_scale_factor * 3) / 256;
     u_inv_scale.set(inv_scale);
     const d_inv_scale = (inv_scale - old_inv_scale) / old_inv_scale;
 
@@ -140,7 +141,7 @@ function zoomInTo(zoom_delta, client_x, client_y) {
     u_translate.setf(([x, y]) => [x - d_inv_scale * dx, y + d_inv_scale * dy]);
 }
 
-document.addEventListener("wheel", (ev) => {
+canvas.addEventListener("wheel", (ev) => {
     const zoom_delta = ev.deltaY > 0 ? -1 : ev.deltaY < 0 ? 1 : 0;
     zoomInTo(0.25 * zoom_delta, ev.clientX, ev.clientY);
 });
@@ -149,27 +150,41 @@ document.addEventListener("wheel", (ev) => {
  * @type {Object.<string, (ev: KeyboardEvent) => void>}
  */
 const key_handlers = {
-    "ArrowLeft": () => { u_translate.setf(([x, y]) => [x - 1, y]); u_selected_cell.setf(([x, y]) => [x - 1, y]); },
-    "ArrowRight": () => { u_translate.setf(([x, y]) => [x + 1, y]); u_selected_cell.setf(([x, y]) => [x + 1, y]); },
-    "ArrowUp": () => { u_translate.setf(([x, y]) => [x, y + 1]); u_selected_cell.setf(([x, y]) => [x, y - 1]); },
-    "ArrowDown": () => { u_translate.setf(([x, y]) => [x, y - 1]); u_selected_cell.setf(([x, y]) => [x, y + 1]); },
+    ArrowLeft: () => {
+        u_translate.setf(([x, y]) => [x - 1, y]);
+        u_selected_cell.setf(([x, y]) => [x - 1, y]);
+    },
+    ArrowRight: () => {
+        u_translate.setf(([x, y]) => [x + 1, y]);
+        u_selected_cell.setf(([x, y]) => [x + 1, y]);
+    },
+    ArrowUp: () => {
+        u_translate.setf(([x, y]) => [x, y + 1]);
+        u_selected_cell.setf(([x, y]) => [x, y - 1]);
+    },
+    ArrowDown: () => {
+        u_translate.setf(([x, y]) => [x, y - 1]);
+        u_selected_cell.setf(([x, y]) => [x, y + 1]);
+    },
     "-": () => zoomInTo(-1, mx, my),
     "+": () => zoomInTo(1, mx, my),
     "=": () => zoomInTo(1, mx, my),
-    "1": () => fillSelectedCell(1),
-    "2": () => fillSelectedCell(2),
-    "3": () => fillSelectedCell(3),
-    "4": () => fillSelectedCell(4),
-    "5": () => fillSelectedCell(5),
-    "6": () => fillSelectedCell(6),
-    "7": () => fillSelectedCell(7),
-    "8": () => fillSelectedCell(8),
-    "9": () => fillSelectedCell(9),
-    "Backspace": () => fillSelectedCell(0),
-    "Delete": () => fillSelectedCell(0),
-    "Escape": () => { u_selected_cell.set([Infinity, Infinity]); },
-}
-document.addEventListener("keydown", (ev) => key_handlers[ev.key]?.(ev));
+    1: () => fillSelectedCell(1),
+    2: () => fillSelectedCell(2),
+    3: () => fillSelectedCell(3),
+    4: () => fillSelectedCell(4),
+    5: () => fillSelectedCell(5),
+    6: () => fillSelectedCell(6),
+    7: () => fillSelectedCell(7),
+    8: () => fillSelectedCell(8),
+    9: () => fillSelectedCell(9),
+    Backspace: () => fillSelectedCell(0),
+    Delete: () => fillSelectedCell(0),
+    Escape: () => {
+        u_selected_cell.set([Infinity, Infinity]);
+    },
+};
+canvas.addEventListener("keydown", (ev) => key_handlers[ev.key]?.(ev));
 
 let clicked = false;
 let dragging = false;
@@ -180,11 +195,12 @@ canvas.addEventListener("mousedown", (ev) => {
     }
 });
 
-document.addEventListener("mousemove", (ev) => {
+canvas.addEventListener("mousemove", (ev) => {
     const x = ev.clientX * pixel_ratio;
     const y = ev.clientY * pixel_ratio;
 
-    if (ev.buttons == 0) { // no mouse buttons pressed
+    if (ev.buttons == 0) {
+        // no mouse buttons pressed
         clicked = false;
         dragging = false;
     }
@@ -200,8 +216,7 @@ document.addEventListener("mousemove", (ev) => {
     [mx, my] = [x, y];
 });
 
-
-document.addEventListener("mouseup", (ev) => {
+canvas.addEventListener("mouseup", (ev) => {
     if (dragging) {
         clicked = false;
         dragging = false;
@@ -234,7 +249,7 @@ function computeTouchCenter(touches) {
     }
     cx *= pixel_ratio / touches.length;
     cy *= pixel_ratio / touches.length;
-    return [cx, cy]
+    return [cx, cy];
 }
 
 let td = 0; // distance between touches (for pinch zoom)
@@ -250,7 +265,7 @@ canvas.addEventListener("touchstart", (ev) => {
     }
 });
 
-document.addEventListener("touchmove", (ev) => {
+canvas.addEventListener("touchmove", (ev) => {
     ev.preventDefault();
 
     let [cx, cy] = computeTouchCenter(ev.touches);
@@ -269,7 +284,7 @@ document.addEventListener("touchmove", (ev) => {
     }
 });
 
-document.addEventListener("touchend", (ev) => {
+canvas.addEventListener("touchend", (ev) => {
     ev.preventDefault();
 
     [mx, my] = computeTouchCenter(ev.touches);
@@ -279,9 +294,7 @@ document.addEventListener("touchend", (ev) => {
 function resize() {
     canvas.width = Math.ceil(pixel_ratio * window.innerWidth);
     canvas.height = Math.ceil(pixel_ratio * window.innerHeight);
-    u_window_resolution.set([
-        window.innerWidth * pixel_ratio, window.innerHeight * pixel_ratio
-    ]);
+    u_window_resolution.set([window.innerWidth * pixel_ratio, window.innerHeight * pixel_ratio]);
     gl.resize();
 }
 window.addEventListener("resize", resize);
