@@ -22,7 +22,7 @@ const u_sudoku = gl.texture("u_sudoku", gl.internal.NEAREST);
 
 // Sudoku grid size
 let [n, m] = [1, 1];
-gl.uniform("u_world_size", "2fv", [n, m]);
+const u_world_size = gl.uniform("u_world_size", "2fv", [n, m]);
 
 let data = generate(1, 1, false);
 console.log(data);
@@ -32,24 +32,49 @@ function updateSudokuData() {
 updateSudokuData();
 
 let in_menu = true;
-const start_button = /** @type {HTMLElement} */ (document.getElementById("start"));
-const continue_button = /** @type {HTMLElement} */ (document.getElementById("continue"));
+const start_button = /** @type {HTMLButtonElement} */ (document.getElementById("start"));
+const continue_button = /** @type {HTMLButtonElement} */ (document.getElementById("continue"));
 const menu_container = /** @type {HTMLElement} */ (document.getElementById("menu-container"));
+
+function hideMenu() {
+    in_menu = false;
+    u_inv_scale.set(inv_scale); // reset zoom animation
+    menu_container.style.display = "none";
+}
 
 start_button.onclick = () => {
     n = 3;
     m = 3;
-
-    // Generate sudoku
     data = generate(n, m, true);
-    console.log(data);
-    updateSudokuData();
-    gl.uniform("u_world_size", "2fv", [n, m]);
 
-    in_menu = false;
-    u_inv_scale.set(inv_scale); // reset zoom animation
-    menu_container.style.display = "none";
+    updateSudokuData();
+    u_world_size.set([n, m]);
+
+    hideMenu();
 };
+
+continue_button.disabled = !localStorage.data;
+continue_button.onclick = () => {
+    n = localStorage.n;
+    m = localStorage.m;
+    data = Uint8Array.from(localStorage.data, (c) => c.charCodeAt(0));
+
+    if (data.length != 9 * 7 * n * m) {
+        alert("Save data has been corrupted (wrong size)");
+        return;
+    }
+
+    updateSudokuData();
+    u_world_size.set([n, m]);
+
+    hideMenu();
+};
+
+function saveToLocalStorage() {
+    localStorage.n = n;
+    localStorage.m = m;
+    localStorage.data = String.fromCharCode(...data);
+}
 
 let inv_scale_factor = 1;
 let inv_scale = (2 ** inv_scale_factor * 3) / 256;
@@ -128,6 +153,7 @@ function fillSelectedCell(num) {
 
     updateSudokuData();
     updateSelectedValue();
+    saveToLocalStorage();
 }
 
 /**
