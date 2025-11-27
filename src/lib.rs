@@ -91,8 +91,6 @@ pub fn generate(n: usize, m: usize, make_puzzle: bool) -> Box<[u8]> {
         }
     }
 
-    log!("{sg:?}");
-
     // solve sudokus
     // (I assume it is always possible to solve them with any valid corner blocks)
     let mut solve_total_backtracks = 0;
@@ -106,7 +104,6 @@ pub fn generate(n: usize, m: usize, make_puzzle: bool) -> Box<[u8]> {
         }
     }
 
-    log!("{sg:?}");
     log!("solve_total_backtracks: {solve_total_backtracks}");
 
     if make_puzzle {
@@ -164,12 +161,10 @@ fn punch_holes(sg: &mut SudokuGrid) {
         if sg.is_solved_all() {
             // still has a unique solution
             sg.cells = unsolved;
-            log!("Punching holes: kept");
         } else {
             // not uniquely solvable anymore, revert
             sg.cells = unsolved;
             sg.cells[i] = prev;
-            log!("Punching holes: reverted");
         }
     }
 }

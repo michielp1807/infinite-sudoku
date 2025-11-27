@@ -25,7 +25,6 @@ let [n, m] = [1, 1];
 const u_world_size = gl.uniform("u_world_size", "2fv", [n, m]);
 
 let data = generate(1, 1, false);
-console.log(data);
 function updateSudokuData() {
     u_sudoku.setSourceArray(data, 7 * 9, n * m, gl.internal.LUMINANCE);
 }
