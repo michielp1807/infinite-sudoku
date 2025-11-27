@@ -52,11 +52,12 @@ start_button.onclick = () => {
     hideMenu();
 };
 
-continue_button.disabled = !localStorage.data;
+continue_button.disabled = !localStorage.infinite_sudoku_state;
 continue_button.onclick = () => {
-    n = localStorage.n;
-    m = localStorage.m;
-    data = Uint8Array.from(localStorage.data, (c) => c.charCodeAt(0));
+    const save_data = JSON.parse(localStorage.infinite_sudoku_state);
+    n = save_data.n;
+    m = save_data.m;
+    data = Uint8Array.from(atob(save_data.data), (c) => c.charCodeAt(0));
 
     if (data.length != 9 * 7 * n * m) {
         alert("Save data has been corrupted (wrong size)");
@@ -70,9 +71,8 @@ continue_button.onclick = () => {
 };
 
 function saveToLocalStorage() {
-    localStorage.n = n;
-    localStorage.m = m;
-    localStorage.data = String.fromCharCode(...data);
+    const save_data = { n, m, data: btoa(String.fromCharCode(...data)) };
+    localStorage.infinite_sudoku_state = JSON.stringify(save_data);
 }
 
 let inv_scale_factor = 1;
