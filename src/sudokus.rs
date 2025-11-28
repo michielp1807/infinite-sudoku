@@ -36,7 +36,7 @@ impl<'a, T: Iterator<Item = usize>> Region<'a, T> {
     pub fn validate(self, partial: bool) -> bool {
         let mut seen = Seen::new();
         for i in self.1 {
-            let value = self.0.cells[i];
+            let value = self.0.cells[i] & 15;
             if partial && value == 0 {
                 continue;
             }
@@ -46,6 +46,21 @@ impl<'a, T: Iterator<Item = usize>> Region<'a, T> {
             seen.add(value);
         }
         true
+    }
+
+    /// Check if region contains duplicates of a certain value
+    pub fn has_duplicate_value(self, value: u8) -> bool {
+        let mut seen = false;
+        for i in self.1 {
+            if (self.0.cells[i] & 15) == value {
+                if seen {
+                    return true;
+                } else {
+                    seen = true;
+                }
+            }
+        }
+        false
     }
 }
 
@@ -365,10 +380,11 @@ impl SudokuGrid {
 
     /// Check if the cell at index i is problematic
     pub fn cell_is_problematic(&self, sudoku_coords: Coords, i: usize) -> bool {
+        let value = self.cells[i] & 15;
         let sudoku = self.sudoku(sudoku_coords);
-        !self.row_for(sudoku, i).validate(true)
-            || !self.column_for(sudoku, i).validate(true)
-            || !self.block_for(sudoku, i).validate(true)
+        self.row_for(sudoku, i).has_duplicate_value(value)
+            || self.column_for(sudoku, i).has_duplicate_value(value)
+            || self.block_for(sudoku, i).has_duplicate_value(value)
     }
 
     pub fn sudoku_at_index(&self, i: usize) -> Coords {
@@ -495,6 +511,26 @@ impl SudokuGrid {
             });
         }
         has_changed_at_all
+    }
+
+    pub fn mark_errors(&mut self) {
+        for i in 0..self.cells.len() {
+            let (s1, s2) = self.sudokus_at_index(i);
+
+            if self.cells[i] & 15 == 0 {
+                self.cells[i] &= !32; // not error
+                continue;
+            }
+
+            dbg!(i);
+            if dbg!(self.cell_is_problematic(s1, i))
+                || dbg!(s2.is_some_and(|s2| self.cell_is_problematic(s2, i)))
+            {
+                self.cells[i] |= 32; // error
+            } else {
+                self.cells[i] &= !32; // not error
+            }
+        }
     }
 }
 
@@ -843,5 +879,66 @@ mod tests {
             .block(&s, TOP_LEFT_BLOCK)
             .values()
             .eq(&[4, 1, 7, 9, 2, 6, 3, 5, 8]));
+    }
+
+    #[test]
+    fn has_duplicate_value() {
+        let mut sg = SudokuGrid::new(1, 1);
+        let s = sg.sudoku((0, 0)).clone();
+        sg.cells[4] = 9;
+        sg.cells[0] = 9;
+        sg.cells[1] = 9;
+
+        assert_eq!(sg.block(&s, TOP_CENTER_BLOCK).has_duplicate_value(7), false);
+        assert_eq!(sg.row(&s, 0).has_duplicate_value(7), false);
+        sg.cells[0] = 7;
+        assert_eq!(sg.block(&s, TOP_CENTER_BLOCK).has_duplicate_value(7), false);
+        assert_eq!(sg.row(&s, 0).has_duplicate_value(7), false);
+        sg.cells[2] = 7;
+        assert_eq!(sg.block(&s, TOP_CENTER_BLOCK).has_duplicate_value(7), true);
+        assert_eq!(sg.row(&s, 0).has_duplicate_value(7), true);
+
+        assert_eq!(sg.column(&s, 3).has_duplicate_value(7), false);
+        sg.cells[s.block_start[MIDDLE_CENTER_BLOCK]] = 7;
+        assert_eq!(sg.column(&s, 3).has_duplicate_value(7), true);
+    }
+
+    #[test]
+    fn mark_errors() {
+        let mut sg = SudokuGrid::new(1, 1);
+
+        sg.cells[37] = 16; // user-entered 0
+        let mut expected = sg.cells.clone();
+        sg.mark_errors();
+        assert_eq!(sg.cells, expected); // unchanged, because everything is 0
+
+        sg.cells[37] = 32; // 0 error
+        sg.cells[42] = 32 + 16; // user-entered 0 error
+        sg.mark_errors();
+        expected[37] = 0; // remove 0 errors
+        expected[42] = 16;
+        assert_eq!(sg.cells, expected);
+
+        // two of the same number in the same column
+        sg.cells[0] = 4;
+        sg.cells[2 * 9] = 4 + 16;
+        sg.mark_errors();
+        expected[0] = 4 + 32;
+        expected[2 * 9] = 4 + 16 + 32;
+        assert_eq!(sg.cells, expected);
+
+        // two of the same number in the same block
+        sg.cells[0] = 6;
+        sg.cells[1] = 6 + 16;
+        sg.cells[7] = 7 + 16; // random other number in block should stay the same
+        sg.mark_errors();
+        expected[0] = 6 + 32;
+        expected[1] = 6 + 16 + 32;
+        expected[7] = 7 + 16;
+        expected[2 * 9] = 4 + 16;
+        assert_eq!(sg.cells, expected);
+
+        sg.mark_errors(); // should remain stable
+        assert_eq!(sg.cells, expected);
     }
 }

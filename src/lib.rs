@@ -171,11 +171,20 @@ fn punch_holes(sg: &mut SudokuGrid) {
 
 #[wasm_bindgen]
 pub fn get_cell_index(n: usize, m: usize, sx: usize, sy: usize, scx: usize, scy: usize) -> usize {
-    // TODO: this returns an index in the new data format, so this is not usable with the sudoku rows
     let sg = SudokuGrid::new(n, m);
     let block = scx / 3 + (scy / 3) * 3;
     let start = sg.sudoku((sx, sy)).block_start[block];
     start + scx % 3 + (scy % 3) * 3
+}
+
+#[wasm_bindgen]
+pub fn mark_errors(cells: Box<[u8]>, n: usize, m: usize) -> Box<[u8]> {
+    let mut sg = SudokuGrid::new(n, m);
+    sg.cells = cells;
+
+    sg.mark_errors();
+
+    sg.cells
 }
 
 #[cfg(test)]

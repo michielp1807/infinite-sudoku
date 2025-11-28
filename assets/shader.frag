@@ -23,6 +23,7 @@ const vec3 col_selected_cell = vec3(0.37, 0.74, 1.0);
 const vec3 col_hover = vec3(0.0);
 const vec3 col_border = vec3(0.0);
 const vec3 col_unused_block = vec3(0.83);
+const vec3 col_error = vec3(1.0, 0.0, 0.0);
 
 // prevent floating point errors by rounding values
 vec2 rounded_mod(vec2 a, vec2 b) {
@@ -106,6 +107,8 @@ void main() {
 	sudoku_index /= u_world_size.x * u_world_size.y - 1.0;
 	int cell_data = int(255.0 * texture(u_sudoku, vec2(index / (7.0 * 9.0 - 1.0), sudoku_index)));
 	bool user_entered = (cell_data & 16) > 0;
+	bool number_error = (cell_data & 32) > 0;
+	color = mix(color, col_error, 0.6 * float(number_error));
 
 	int number = cell_data & 15;
 	vec2 num_block_uv = (mod(v_uv / 3.0, 1.0) - 0.5) * 1.01 + 0.5; // slightly scale down blocks to account for thicker border
@@ -122,6 +125,7 @@ void main() {
 	vec3 num_color = mix(col_num, col_selected_num, float(number == u_selected_value));
 
 	color = mix(color, num_color, num_text * float(number > 0 && number <= 9));
+
 
 	// highlight hovered cell
 	color = mix(color, col_hover, 0.1 * float(floor(u_mouse_coords) == cell_coord));

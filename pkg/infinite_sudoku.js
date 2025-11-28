@@ -82,19 +82,6 @@ function getDataViewMemory0() {
     }
     return cachedDataViewMemory0;
 }
-/**
- * @param {number} n
- * @param {number} m
- * @param {number} sx
- * @param {number} sy
- * @param {number} scx
- * @param {number} scy
- * @returns {number}
- */
-export function get_cell_index(n, m, sx, sy, scx, scy) {
-    const ret = wasm.get_cell_index(n, m, sx, sy, scx, scy);
-    return ret >>> 0;
-}
 
 function getArrayU8FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
@@ -112,6 +99,41 @@ export function generate(n, m, make_puzzle) {
     var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     return v1;
+}
+
+/**
+ * @param {number} n
+ * @param {number} m
+ * @param {number} sx
+ * @param {number} sy
+ * @param {number} scx
+ * @param {number} scy
+ * @returns {number}
+ */
+export function get_cell_index(n, m, sx, sy, scx, scy) {
+    const ret = wasm.get_cell_index(n, m, sx, sy, scx, scy);
+    return ret >>> 0;
+}
+
+function passArray8ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 1, 1) >>> 0;
+    getUint8ArrayMemory0().set(arg, ptr / 1);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+/**
+ * @param {Uint8Array} cells
+ * @param {number} n
+ * @param {number} m
+ * @returns {Uint8Array}
+ */
+export function mark_errors(cells, n, m) {
+    const ptr0 = passArray8ToWasm0(cells, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.mark_errors(ptr0, len0, n, m);
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
 }
 
 async function __wbg_load(module, imports) {

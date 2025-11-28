@@ -1,4 +1,4 @@
-import init, { generate, get_cell_index } from "../pkg/infinite_sudoku.js";
+import init, { generate, get_cell_index, mark_errors } from "../pkg/infinite_sudoku.js";
 import glSetup from "./webgl.js";
 
 const canvas = document.getElementsByTagName("canvas")[0];
@@ -143,13 +143,14 @@ function fillSelectedCell(num) {
         return;
     }
 
-    if ((data[i] & 16) != 16 && data[i] != 0) {
+    if ((data[i] & 16) != 16 && (data[i] & 15) != 0) {
         console.log("cannot edit constant value", data[i]);
         return;
     }
 
     data[i] = (num & 15) + 16; // user-specified flag
 
+    data = mark_errors(data, n, m);
     updateSudokuData();
     updateSelectedValue();
     saveToLocalStorage();
