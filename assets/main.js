@@ -259,6 +259,22 @@ canvas.addEventListener("mousemove", (ev) => {
     [mx, my] = [x, y];
 });
 
+/**
+ * Set the selected cell based on a (x, y) mouse coordinate
+ *
+ * Matches computation of `u_mouse_coords`
+ *
+ * @param {number} x
+ * @param {number} y
+ */
+function selectCell(x, y) {
+    const [tx, ty] = u_translate.get();
+    let bx = (x - 0.5 * window.innerWidth) * pixel_ratio * inv_scale + tx;
+    let by = (y - 0.5 * window.innerHeight) * pixel_ratio * inv_scale - ty + 1;
+
+    u_selected_cell.set([bx, by]);
+}
+
 canvas.addEventListener("mouseup", (ev) => {
     if (dragging) {
         clicked = false;
@@ -267,14 +283,7 @@ canvas.addEventListener("mouseup", (ev) => {
     }
 
     if (ev.button == 0) {
-        // set selected cell
-        // matches computation of u_mouse_coords
-        // TODO: make also work for touchscreens
-        let [tx, ty] = u_translate.get();
-        let bx = (ev.clientX * pixel_ratio - 0.5 * window.innerWidth) * pixel_ratio * inv_scale + tx;
-        let by = (ev.clientY * pixel_ratio - 0.5 * window.innerHeight) * pixel_ratio * inv_scale - ty + 1;
-
-        u_selected_cell.set([bx, by]);
+        selectCell(ev.clientX, ev.clientY);
     }
 });
 
@@ -295,11 +304,14 @@ function computeTouchCenter(touches) {
     return [cx, cy];
 }
 
+let tap = false; // true when just a single touch is used and not moving
 let td = 0; // distance between touches (for pinch zoom)
 canvas.addEventListener("touchstart", (ev) => {
     ev.preventDefault();
 
     [mx, my] = computeTouchCenter(ev.touches);
+
+    tap = ev.touches.length == 1;
 
     if (ev.touches.length == 2) {
         let t1 = ev.touches[0];
@@ -310,6 +322,8 @@ canvas.addEventListener("touchstart", (ev) => {
 
 canvas.addEventListener("touchmove", (ev) => {
     ev.preventDefault();
+
+    tap = false;
 
     let [cx, cy] = computeTouchCenter(ev.touches);
     let dx = cx - mx;
@@ -331,6 +345,12 @@ canvas.addEventListener("touchend", (ev) => {
     ev.preventDefault();
 
     [mx, my] = computeTouchCenter(ev.touches);
+
+    if (ev.touches.length == 0 && tap) {
+        const x = ev.changedTouches[0].clientX;
+        const y = ev.changedTouches[0].clientY;
+        selectCell(x, y);
+    }
 });
 
 // Resize canvas
