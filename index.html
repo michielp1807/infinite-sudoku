@@ -87,6 +87,38 @@
                 width: 100%;
                 height: 100%;
             }
+
+            #numpad {
+                position: fixed;
+                background-color: #fffb;
+                border-radius: 1em 1em 0 0;
+                padding: 0.5rem;
+                bottom: 0;
+                left: 50%;
+                transform: translateX(-50%);
+                display: grid;
+                grid-template-columns: repeat(5, 3em);
+                grid-gap: 0.5em;
+                transition: all 0.15s ease-in-out;
+                translate: 0;
+                opacity: 1;
+            }
+
+            #numpad.disabled {
+                translate: 0 10%;
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            #numpad > button {
+                aspect-ratio: 1 / 1;
+                border-radius: 1rem;
+                border: 0.25rem solid black;
+                padding: 0.2rem 0 0 0;
+                margin: 0;
+                font-size: 2.6rem;
+                background-color: #fffd;
+            }
         </style>
     </head>
 
@@ -100,6 +132,19 @@
                 <button id="continue" disabled>Continue</button>
                 <button id="start">Start new</button>
             </main>
+        </div>
+
+        <div id="numpad" class="disabled">
+            <button id="numpad1">1</button>
+            <button id="numpad2">2</button>
+            <button id="numpad3">3</button>
+            <button id="numpad4">4</button>
+            <button id="numpad5">5</button>
+            <button id="numpad6">6</button>
+            <button id="numpad7">7</button>
+            <button id="numpad8">8</button>
+            <button id="numpad9">9</button>
+            <button id="numpad0">X</button>
         </div>
 
         <script src="assets/main.js" type="module"></script>

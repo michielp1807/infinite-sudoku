@@ -75,6 +75,11 @@ function saveToLocalStorage() {
     localStorage.infinite_sudoku_state = JSON.stringify(save_data);
 }
 
+const numpad_container = /** @type {HTMLElement} */ (document.getElementById("numpad"));
+for (let i = 0; i < 10; i++) {
+    /** @type {HTMLElement} */ (document.getElementById("numpad" + i)).onclick = () => fillSelectedCell(i);
+}
+
 let inv_scale_factor = 1;
 let inv_scale = (2 ** inv_scale_factor * 3) / 256;
 const u_translate = gl.uniform("u_translate", "2fv", [0.0, 0.0]);
@@ -127,7 +132,14 @@ function updateSelectedValue() {
     const i = getCellIndexFromCoords(bx, by);
     if (i === null) {
         u_selected_value.set(0);
+        numpad_container.classList.add("disabled");
         return;
+    }
+    if ((data[i] & 16) != 16 && (data[i] & 15) != 0) {
+        // constant value
+        numpad_container.classList.add("disabled");
+    } else {
+        numpad_container.classList.remove("disabled");
     }
     u_selected_value.set(data[i] & 15);
 }
