@@ -1,11 +1,11 @@
 /* tslint:disable */
 /* eslint-disable */
+export function mark_errors(cells: Uint8Array, n: number, m: number): Uint8Array;
+export function get_cell_index(n: number, m: number, sx: number, sy: number, scx: number, scy: number): number;
 /**
  * Generate a solved sudoku based on random input data
  */
 export function generate(n: number, m: number, make_puzzle: boolean): Uint8Array;
-export function get_cell_index(n: number, m: number, sx: number, sy: number, scx: number, scy: number): number;
-export function mark_errors(cells: Uint8Array, n: number, m: number): Uint8Array;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 

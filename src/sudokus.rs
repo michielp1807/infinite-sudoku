@@ -522,9 +522,8 @@ impl SudokuGrid {
                 continue;
             }
 
-            dbg!(i);
-            if dbg!(self.cell_is_problematic(s1, i))
-                || dbg!(s2.is_some_and(|s2| self.cell_is_problematic(s2, i)))
+            if self.cell_is_problematic(s1, i)
+                || s2.is_some_and(|s2| self.cell_is_problematic(s2, i))
             {
                 self.cells[i] |= 32; // error
             } else {

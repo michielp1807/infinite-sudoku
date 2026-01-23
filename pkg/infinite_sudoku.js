@@ -83,22 +83,30 @@ function getDataViewMemory0() {
     return cachedDataViewMemory0;
 }
 
+function passArray8ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 1, 1) >>> 0;
+    getUint8ArrayMemory0().set(arg, ptr / 1);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
 function getArrayU8FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
 }
 /**
- * Generate a solved sudoku based on random input data
+ * @param {Uint8Array} cells
  * @param {number} n
  * @param {number} m
- * @param {boolean} make_puzzle
  * @returns {Uint8Array}
  */
-export function generate(n, m, make_puzzle) {
-    const ret = wasm.generate(n, m, make_puzzle);
-    var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+export function mark_errors(cells, n, m) {
+    const ptr0 = passArray8ToWasm0(cells, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.mark_errors(ptr0, len0, n, m);
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    return v1;
+    return v2;
 }
 
 /**
@@ -115,25 +123,18 @@ export function get_cell_index(n, m, sx, sy, scx, scy) {
     return ret >>> 0;
 }
 
-function passArray8ToWasm0(arg, malloc) {
-    const ptr = malloc(arg.length * 1, 1) >>> 0;
-    getUint8ArrayMemory0().set(arg, ptr / 1);
-    WASM_VECTOR_LEN = arg.length;
-    return ptr;
-}
 /**
- * @param {Uint8Array} cells
+ * Generate a solved sudoku based on random input data
  * @param {number} n
  * @param {number} m
+ * @param {boolean} make_puzzle
  * @returns {Uint8Array}
  */
-export function mark_errors(cells, n, m) {
-    const ptr0 = passArray8ToWasm0(cells, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.mark_errors(ptr0, len0, n, m);
-    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+export function generate(n, m, make_puzzle) {
+    const ret = wasm.generate(n, m, make_puzzle);
+    var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    return v2;
+    return v1;
 }
 
 async function __wbg_load(module, imports) {
