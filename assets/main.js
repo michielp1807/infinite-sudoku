@@ -34,6 +34,8 @@ let in_menu = true;
 const start_button = /** @type {HTMLButtonElement} */ (document.getElementById("start"));
 const continue_button = /** @type {HTMLButtonElement} */ (document.getElementById("continue"));
 const menu_container = /** @type {HTMLElement} */ (document.getElementById("menu-container"));
+const n_input = /** @type {HTMLInputElement} */ (document.getElementById("n"));
+const m_input = /** @type {HTMLInputElement} */ (document.getElementById("m"));
 
 function hideMenu() {
     in_menu = false;
@@ -42,8 +44,8 @@ function hideMenu() {
 }
 
 start_button.onclick = () => {
-    n = 3;
-    m = 3;
+    n = parseInt(n_input.value) || 3;
+    m = parseInt(m_input.value) || 3;
     data = generate(n, m, true);
 
     updateSudokuData();

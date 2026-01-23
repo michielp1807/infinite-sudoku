@@ -119,6 +119,21 @@
                 font-size: 2.6rem;
                 background-color: #fffd;
             }
+
+            #settings {
+                opacity: 0.3;
+                transition: opacity 0.1s;
+            }
+
+            #settings:hover {
+                opacity: 1;
+            }
+
+            input[type="number"] {
+                padding: 0.5rem;
+                border-radius: 0.5rem;
+                border: 0.15rem solid black;
+            }
         </style>
     </head>
 
@@ -131,6 +146,11 @@
                 </hgroup>
                 <button id="continue" disabled>Continue</button>
                 <button id="start">Start new</button>
+                <div id="settings">
+                    <input id="n" type="number" value="3" min="1" max="5" />
+                    x
+                    <input id="m" type="number" value="3" min="1" max="5" />
+                </div>
             </main>
         </div>
 
