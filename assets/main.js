@@ -163,6 +163,13 @@ function fillSelectedCell(num) {
     data[i] = (num & 15) + 16; // user-specified flag
 
     data = mark_errors(data, n, m);
+
+    const is_finished = data.every((v) => (v & 15) != 0 && (v & 32) == 0);
+    if (is_finished) {
+        console.log("Finished!");
+        finished_time = performance.now();
+    }
+
     updateSudokuData();
     updateSelectedValue();
     saveToLocalStorage();
@@ -376,6 +383,12 @@ window.addEventListener("resize", resize);
 resize();
 
 /**
+ * @type {number | undefined}
+ */
+let finished_time = undefined;
+const u_finished_animation = gl.uniform("u_finished_animation", "1f", 0);
+
+/**
  * WebGL draw loop
  * @type {FrameRequestCallback}
  */
@@ -389,6 +402,10 @@ function tick(time) {
     if (in_menu) {
         // zoom animation
         u_inv_scale.set(inv_scale * (2 - Math.cos(0.00005 * time)));
+    }
+
+    if (finished_time) {
+        u_finished_animation.set((time - finished_time) * 0.001);
     }
 
     gl.draw();

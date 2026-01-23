@@ -12,6 +12,7 @@ uniform sampler2D u_numbers_texture;
 uniform sampler2D u_sudoku;
 uniform float u_inv_scale;
 uniform vec2 u_world_size;
+uniform float u_finished_animation;
 
 const float THIRD = 1.0 / 3.0;
 
@@ -66,7 +67,13 @@ void main() {
 	float block_index = max(fsudoku_uv.x + fsudoku_uv.y * 3.0 - 2.0, 0.0);
 	float index = 9.0 * block_index + cell_index;
 
-	// TODO: highlight errors (put extra bits in sudoku texture)
+	// finish animation
+	vec2 cell_coord = floor(v_uv);
+	vec2 selected_cell = floor(u_selected_cell);
+	if (u_finished_animation > 0.0) {
+		float dist = distance(cell_coord, selected_cell + vec2(.1,.1)) - pow(u_finished_animation + 2.0, 2.0) * 5.0 + 40.0;
+		color = mix(color, col_selected_cell, 0.5 - 0.5 * cos(clamp(0.5 * dist, 0.0, 6.2831853)));
+	}
 
 	// highlight selected sudoku(s)
 	vec2 selected_fb4x4 = floor(mod(u_selected_cell, 12.0) / 3.0);
@@ -91,8 +98,6 @@ void main() {
 	color = mix(color, col_selected_cell, 0.3 * float(is_hovered_sudoku));
 
 	// highlight selected row/column/block
-	vec2 cell_coord = floor(v_uv);
-	vec2 selected_cell = floor(u_selected_cell);
 	vec2 block_coord = floor(v_uv / 3.0);
 	vec2 selected_block = floor(u_selected_cell / 3.0);
 	color = mix(color, col_selected_cell, 0.4 * float(is_hovered_sudoku &&
