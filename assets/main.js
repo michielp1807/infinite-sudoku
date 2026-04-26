@@ -4,7 +4,7 @@ import glSetup from "./webgl.js";
 const canvas = document.getElementsByTagName("canvas")[0];
 const [_, gl] = await Promise.all([init(), glSetup(canvas)]);
 
-const pixel_ratio = window.devicePixelRatio;
+let pixel_ratio = window.devicePixelRatio;
 const u_window_resolution = gl.uniform("u_window_resolution", "2fv", [
     window.innerWidth * pixel_ratio,
     window.innerHeight * pixel_ratio,
@@ -200,12 +200,13 @@ function zoomInTo(zoom_delta, client_x, client_y) {
     u_inv_scale.set(inv_scale);
     const d_inv_scale = (inv_scale - old_inv_scale) / old_inv_scale;
 
-    const dx = (client_x - 0.5 * window.innerWidth) * old_inv_scale;
-    const dy = (client_y - 0.5 * window.innerHeight) * old_inv_scale;
+    const dx = (client_x - 0.5 * window.innerWidth) * old_inv_scale * pixel_ratio;
+    const dy = (client_y - 0.5 * window.innerHeight) * old_inv_scale * pixel_ratio;
     u_translate.setf(([x, y]) => [x - d_inv_scale * dx, y + d_inv_scale * dy]);
 }
 
 canvas.addEventListener("wheel", (ev) => {
+    ev.preventDefault();
     const zoom_delta = ev.deltaY > 0 ? -1 : ev.deltaY < 0 ? 1 : 0;
     zoomInTo(0.25 * zoom_delta, ev.clientX, ev.clientY);
 });
@@ -376,6 +377,7 @@ canvas.addEventListener("touchend", (ev) => {
 
 // Resize canvas
 function resize() {
+    pixel_ratio = window.devicePixelRatio;
     canvas.width = Math.ceil(pixel_ratio * window.innerWidth);
     canvas.height = Math.ceil(pixel_ratio * window.innerHeight);
     u_window_resolution.set([window.innerWidth * pixel_ratio, window.innerHeight * pixel_ratio]);
