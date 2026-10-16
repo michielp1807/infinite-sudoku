@@ -16,15 +16,14 @@ uniform float u_finished_animation;
 
 const float THIRD = 1.0 / 3.0;
 
-// TODO: add dark mode?
-const vec3 col_num = vec3(0.0);
-const vec3 col_selected_num = vec3(0.0, 0.22, 0.58);
-const vec3 col_cell = vec3(1.0);
-const vec3 col_selected_cell = vec3(0.37, 0.74, 1.0);
-const vec3 col_hover = vec3(0.0);
-const vec3 col_border = vec3(0.0);
-const vec3 col_unused_block = vec3(0.83);
-const vec3 col_error = vec3(1.0, 0.0, 0.0);
+uniform vec3 col_num;
+uniform vec3 col_selected_num;
+uniform vec3 col_cell;
+uniform vec3 col_selected_cell;
+uniform vec3 col_hover;
+uniform vec3 col_border;
+uniform vec3 col_unused_block;
+uniform vec3 col_error;
 
 // prevent floating point errors by rounding values
 vec2 rounded_mod(vec2 a, vec2 b) {

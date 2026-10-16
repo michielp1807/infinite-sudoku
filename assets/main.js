@@ -4,6 +4,61 @@ import glSetup from "./webgl.js";
 const canvas = document.getElementsByTagName("canvas")[0];
 const [_, gl] = await Promise.all([init(), glSetup(canvas)]);
 
+/**
+ * @typedef {[number, number, number]} RGB
+ * @typedef {Object} Palette
+ * @property {RGB} col_num
+ * @property {RGB} col_selected_num
+ * @property {RGB} col_cell
+ * @property {RGB} col_selected_cell
+ * @property {RGB} col_hover
+ * @property {RGB} col_border
+ * @property {RGB} col_unused_block
+ * @property {RGB} col_error
+ */
+
+/** @type {{light: Palette, dark: Palette}} */
+const palettes = {
+    light: {
+        col_num: [0, 0, 0],
+        col_selected_num: [0, 0.22, 0.58],
+        col_cell: [1, 1, 1],
+        col_selected_cell: [0.37, 0.74, 1],
+        col_hover: [0, 0, 0],
+        col_border: [0, 0, 0],
+        col_unused_block: [0.83, 0.83, 0.83],
+        col_error: [1, 0, 0],
+    },
+    dark: {
+        col_num: [0.9, 0.9, 0.9],
+        col_selected_num: [0.61, 0.84, 1],
+        col_cell: [0.1, 0.11, 0.13],
+        col_selected_cell: [0.11, 0.26, 0.39],
+        col_hover: [1, 1, 1],
+        col_border: [0.2, 0.22, 0.25],
+        col_unused_block: [0.06, 0.07, 0.08],
+        col_error: [0.8, 0.15, 0.15],
+    },
+};
+
+const colorUniforms = /** @type {(keyof Palette)[]} */ (Object.keys(palettes.light)).map((name) => ({
+    name,
+    uniform: gl.uniform(name, "3fv", palettes.light[name]),
+}));
+
+/** @param {boolean} enabled */
+export function setDarkMode(enabled) {
+    document.body.classList.toggle("dark", enabled);
+    const palette = enabled ? palettes.dark : palettes.light;
+    for (const { name, uniform } of colorUniforms) {
+        uniform.set(palette[name]);
+    }
+}
+
+const preferredDarkMode = window.matchMedia("(prefers-color-scheme: dark)");
+setDarkMode(preferredDarkMode.matches);
+preferredDarkMode.addEventListener("change", (event) => setDarkMode(event.matches));
+
 let pixel_ratio = window.devicePixelRatio;
 const u_window_resolution = gl.uniform("u_window_resolution", "2fv", [
     window.innerWidth * pixel_ratio,

@@ -1,12 +1,15 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <meta charset="UTF-8" />
         <title>Infinite Sudoku</title>
         <meta property="og:title" content="Infinite Sudoku">
-        <meta property="og:description" content="An infinite sudoku solvable in a finite amount of time.">
-        <meta property="og:image" content="https://michielp1807.github.io/infinite-sudoku/assets/embed.png">
-        <meta property="og:url" content="https://michielp1807.github.io/infinite-sudoku/">
+        <meta property="og:description"
+              content="An infinite sudoku solvable in a finite amount of time.">
+        <meta property="og:image"
+              content="https://michielp1807.github.io/infinite-sudoku/assets/embed.png">
+        <meta property="og:url"
+              content="https://michielp1807.github.io/infinite-sudoku/">
         <meta property="og:type" content="website">
         <link rel="shortcut icon" type="image/png" href="assets/logo.png" />
         <meta name="viewport" content="width=device-width, user-scalable=no" />
@@ -66,23 +69,23 @@
                 font-family: "LT Superior", sans-serif;
                 font-weight: bold;
                 font-size: 1rem;
-            }
 
-            button:enabled {
-                cursor: pointer;
-            }
+                &:enabled {
+                    cursor: pointer;
+    
+                    &:hover {
+                        background-color: #f2f2f2;
+                        box-shadow: 0 0 1em -0.6em;
+                    }
 
-            button:enabled:hover {
-                background-color: #f2f2f2;
-                box-shadow: 0 0 1em -0.6em;
-            }
+                    &:active {
+                        transform: scale(0.95);
+                    }
+                }
 
-            button:enabled:active {
-                transform: scale(0.95);
-            }
-
-            button:disabled {
-                opacity: 0.2;
+                &:disabled {
+                    opacity: 0.2;
+                }
             }
 
             canvas {
@@ -107,31 +110,31 @@
                 transition: all 0.15s ease-in-out;
                 translate: 0;
                 opacity: 1;
-            }
 
-            #numpad.disabled {
-                translate: 0 10%;
-                opacity: 0;
-                pointer-events: none;
-            }
+                &.disabled {
+                    translate: 0 10%;
+                    opacity: 0;
+                    pointer-events: none;
+                }
 
-            #numpad > button {
-                aspect-ratio: 1 / 1;
-                border-radius: 1rem;
-                border: 0.25rem solid black;
-                padding: 0.2rem 0 0 0;
-                margin: 0;
-                font-size: 2.6rem;
-                background-color: #fffd;
+                & > button {
+                    aspect-ratio: 1 / 1;
+                    border-radius: 1rem;
+                    border: 0.25rem solid black;
+                    padding: 0.2rem 0 0 0;
+                    margin: 0;
+                    font-size: 2.6rem;
+                    background-color: #fffd;
+                }
             }
 
             #settings {
                 opacity: 0.3;
                 transition: opacity 0.1s;
-            }
 
-            #settings:hover {
-                opacity: 1;
+                &:hover {
+                    opacity: 1;
+                }
             }
 
             input[type="number"] {
@@ -139,18 +142,41 @@
                 border-radius: 0.5rem;
                 border: 0.15rem solid black;
             }
+
+            body.dark {
+                color: white;
+                background-color: black;
+
+                #menu-container { 
+                    background-color: #000a;
+                }
+
+                #numpad {
+                    background-color: #000b;
+
+                    & > button {
+                        border-color: #777;
+                        background-color: #333d;
+                        color: white;
+
+                        &:hover {
+                            background-color: #555d;
+                        }
+                    }
+                }
+
+            }
         </style>
     </head>
-
-    <body>
+    <body class="dark">
         <div id="menu-container">
             <main>
                 <hgroup>
                     <h1>Infinite Sudoku</h1>
                     <p>An infinite sudoku solvable in a finite amount of time.</p>
                 </hgroup>
-                <button id="continue" disabled>Continue</button>
-                <button id="start">Start new</button>
+                <button type="button" id="continue" disabled>Continue</button>
+                <button type="button" id="start">Start new</button>
                 <div id="settings">
                     <input id="n" type="number" value="3" min="1" max="5" />
                     x
@@ -158,24 +184,24 @@
                 </div>
             </main>
         </div>
-
         <div id="numpad" class="disabled">
-            <button id="numpad1">1</button>
-            <button id="numpad2">2</button>
-            <button id="numpad3">3</button>
-            <button id="numpad4">4</button>
-            <button id="numpad5">5</button>
-            <button id="numpad6">6</button>
-            <button id="numpad7">7</button>
-            <button id="numpad8">8</button>
-            <button id="numpad9">9</button>
-            <button id="numpad0">X</button>
+            <button type="button" id="numpad1">1</button>
+            <button type="button" id="numpad2">2</button>
+            <button type="button" id="numpad3">3</button>
+            <button type="button" id="numpad4">4</button>
+            <button type="button" id="numpad5">5</button>
+            <button type="button" id="numpad6">6</button>
+            <button type="button" id="numpad7">7</button>
+            <button type="button" id="numpad8">8</button>
+            <button type="button" id="numpad9">9</button>
+            <button type="button" id="numpad0">X</button>
         </div>
-
         <script src="assets/main.js" type="module"></script>
-
         <!-- TODO: progress bar for % finished? -->
-
         <canvas></canvas>
     </body>
+    <script>
+    // prevent flashing the screen with the wrong color
+    document.body.classList.toggle("dark", window.matchMedia("(prefers-color-scheme: dark)").matches);
+    </script>
 </html>
