@@ -262,9 +262,10 @@ function zoomInTo(zoom_delta, client_x, client_y) {
 
 canvas.addEventListener("wheel", (ev) => {
     ev.preventDefault();
-    const zoom_delta = ev.deltaY > 0 ? -1 : ev.deltaY < 0 ? 1 : 0;
-    zoomInTo(0.25 * zoom_delta, ev.clientX, ev.clientY);
-});
+    const delta_y = ev.deltaY * (ev.deltaMode == 1 ? 16 : ev.deltaMode == 2 ? window.innerHeight : 1);
+    const sensitivity = ev.ctrlKey ? 0.02 : 0.0025; // Track-pad pinch gestures arrive as Ctrl+wheel with smaller deltas
+    zoomInTo(-delta_y * sensitivity, ev.clientX, ev.clientY);
+}, { passive: false });
 
 /**
  * @type {Object.<string, (ev: KeyboardEvent) => void>}
