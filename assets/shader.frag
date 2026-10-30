@@ -75,8 +75,8 @@ void main() {
 	vec2 cell_coord = floor(v_uv);
 	vec2 selected_cell = floor(u_selected_cell);
 	if (u_finished_animation > 0.0) {
-		float dist = distance(cell_coord, selected_cell + vec2(.1,.1)) - pow(u_finished_animation + 2.0, 2.0) * 5.0 + 40.0;
-		color = mix(color, col_selected_cell, 0.5 - 0.5 * cos(clamp(0.5 * dist, 0.0, 6.2831853)));
+		float dist = distance(cell_coord, selected_cell + vec2(.1,.1)) - pow(u_finished_animation + 2.0, 2.0) * 5.0 + 60.0;
+		color = mix(color, col_selected_cell, 0.5 - 0.5 * cos(clamp(0.5 * dist, 0.0, 3.0 * 6.2831853)));
 	}
 
 	// highlight selected sudoku(s)
@@ -134,7 +134,6 @@ void main() {
 	vec3 num_color = mix(col_num, col_selected_num, float(number == u_selected_value));
 
 	color = mix(color, num_color, num_text * float(number > 0 && number <= 9));
-
 
 	// highlight hovered cell
 	color = mix(color, col_hover, 0.1 * float(floor(u_mouse_coords) == cell_coord));
