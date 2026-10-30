@@ -1,14 +1,15 @@
 /* @ts-self-types="./infinite_sudoku.d.ts" */
 
 /**
- * Generate a solved sudoku based on random input data
+ * Generate a solved sudoku, deterministically based on the given seed
  * @param {number} n
  * @param {number} m
  * @param {boolean} make_puzzle
+ * @param {number} seed
  * @returns {Uint8Array}
  */
-export function generate(n, m, make_puzzle) {
-    const ret = wasm.generate(n, m, make_puzzle);
+export function generate(n, m, make_puzzle, seed) {
+    const ret = wasm.generate(n, m, make_puzzle, seed);
     var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     return v1;
@@ -61,10 +62,6 @@ function __wbg_get_imports() {
         },
         __wbg_new_227d7c05414eb861: function() {
             const ret = new Error();
-            return ret;
-        },
-        __wbg_random_a4ef1004da416cb8: function() {
-            const ret = Math.random();
             return ret;
         },
         __wbg_stack_3b0d974bbf31e44f: function(arg0, arg1) {

@@ -1,7 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
-export const generate: (a: number, b: number, c: number) => [number, number];
+export const generate: (a: number, b: number, c: number, d: number) => [number, number];
 export const get_cell_index: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
 export const mark_errors: (a: number, b: number, c: number, d: number) => [number, number];
 export const __wbindgen_free: (a: number, b: number, c: number) => void;

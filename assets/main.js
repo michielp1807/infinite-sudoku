@@ -79,7 +79,7 @@ const u_sudoku = gl.texture("u_sudoku", gl.internal.NEAREST);
 let [n, m] = [1, 1];
 const u_world_size = gl.uniform("u_world_size", "2fv", [n, m]);
 
-let data = generate(1, 1, false);
+let data = generate(1, 1, false, 37);
 function updateSudokuData() {
     u_sudoku.setSourceArray(data, 7 * 9, n * m, gl.internal.LUMINANCE);
 }
@@ -91,6 +91,7 @@ const continue_button = /** @type {HTMLButtonElement} */ (document.getElementByI
 const menu_container = /** @type {HTMLElement} */ (document.getElementById("menu-container"));
 const n_input = /** @type {HTMLInputElement} */ (document.getElementById("n"));
 const m_input = /** @type {HTMLInputElement} */ (document.getElementById("m"));
+const seed_input = /** @type {HTMLInputElement} */ (document.getElementById("seed"));
 
 function hideMenu() {
     in_menu = false;
@@ -101,7 +102,8 @@ function hideMenu() {
 start_button.onclick = () => {
     n = parseInt(n_input.value) || 3;
     m = parseInt(m_input.value) || 3;
-    data = generate(n, m, true);
+    const seed = seed_input.value === "" ? Math.random() * (2 ** 32) : parseInt(seed_input.value) >>> 0;
+    data = generate(n, m, true, seed);
 
     updateSudokuData();
     u_world_size.set([n, m]);

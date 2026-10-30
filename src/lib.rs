@@ -7,9 +7,6 @@ use wasm_bindgen::prelude::wasm_bindgen;
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
-
-    #[wasm_bindgen(js_namespace = Math)]
-    fn random() -> f64;
 }
 
 // Console log with format string
@@ -17,26 +14,47 @@ macro_rules! log {
     ($($arg:tt)*) => (log(&format!($($arg)*)))
 }
 
-pub fn random_int(max: usize) -> usize {
-    ((max as f64) * random()) as usize
+/// Seeded pseudorandom number generator (SplitMix64)
+pub struct Rng(u64);
+
+impl Rng {
+    pub fn new(seed: u64) -> Self {
+        Rng(seed)
+    }
+
+    pub fn next_u64(&mut self) -> u64 {
+        self.0 = self.0.wrapping_add(0x9e3779b97f4a7c15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d049bb133111eb);
+        z ^ (z >> 31)
+    }
+
+    /// Random integer in 0..max
+    pub fn random_int(&mut self, max: usize) -> usize {
+        (((self.next_u64() >> 32) * max as u64) >> 32) as usize
+    }
+
+    /// Get randomly shuffled 1..=9
+    pub fn random_sequence(&mut self) -> impl Iterator<Item = u8> + '_ {
+        let mut values: Vec<u8> = (1..=9).collect();
+        (0..9).map(move |_| {
+            if values.len() > 1 {
+                values.swap_remove(self.random_int(values.len()))
+            } else {
+                values[0]
+            }
+        })
+    }
 }
 
-/// Get randomly shuffled 1..=9
-pub fn generate_random_sequence() -> impl Iterator<Item = u8> {
-    let mut values: Vec<u8> = (1..=9).collect();
-    (0..9).map(move |_| {
-        if values.len() > 1 {
-            values.swap_remove(random_int(values.len()))
-        } else {
-            values[0]
-        }
-    })
-}
-
-/// Generate a solved sudoku based on random input data
+/// Generate a solved sudoku, deterministically based on the given seed
 #[wasm_bindgen]
-pub fn generate(n: usize, m: usize, make_puzzle: bool) -> Box<[u8]> {
+pub fn generate(n: usize, m: usize, make_puzzle: bool, seed: u32) -> Box<[u8]> {
     console_error_panic_hook::set_once();
+
+    log!("Generating {n}x{m} sudoku with seed {seed}");
+    let mut rng = Rng::new(seed as u64);
 
     let mut sg = SudokuGrid::new(n, m);
 
@@ -44,7 +62,7 @@ pub fn generate(n: usize, m: usize, make_puzzle: bool) -> Box<[u8]> {
     for x in 0..n {
         for y in 0..m {
             // randomized depth-first solve block
-            let random_values = generate_random_sequence().collect::<Box<[u8]>>();
+            let random_values = rng.random_sequence().collect::<Box<[u8]>>();
             let backtracks = DfsBlock::new(&sg, (x, y), BOTTOM_LEFT_BLOCK, &random_values)
                 .next_solution(&mut sg)
                 .unwrap_or_else(|_| panic!("Could not solve\n{sg:?}"));
@@ -53,7 +71,7 @@ pub fn generate(n: usize, m: usize, make_puzzle: bool) -> Box<[u8]> {
 
         for y in 0..m {
             // randomized depth-first solve block
-            let random_values = generate_random_sequence().collect::<Box<[u8]>>();
+            let random_values = rng.random_sequence().collect::<Box<[u8]>>();
             let mut backtracks = 0;
             let mut dfs = DfsBlock::new(&sg, (x, y), BOTTOM_RIGHT_BLOCK, &random_values);
             if dfs.next_solution(&mut sg).is_err() {
@@ -108,16 +126,16 @@ pub fn generate(n: usize, m: usize, make_puzzle: bool) -> Box<[u8]> {
 
     if make_puzzle {
         // punch holes
-        punch_holes(&mut sg);
+        punch_holes(&mut sg, &mut rng);
     }
 
     sg.cells
 }
 
-fn punch_holes(sg: &mut SudokuGrid) {
+fn punch_holes(sg: &mut SudokuGrid, rng: &mut Rng) {
     let mut indexes = (0..sg.cells.len()).collect::<Vec<usize>>();
     while !indexes.is_empty() {
-        let i = indexes.swap_remove(random_int(indexes.len()));
+        let i = indexes.swap_remove(rng.random_int(indexes.len()));
 
         let prev = sg.cells[i];
         sg.cells[i] = 0;

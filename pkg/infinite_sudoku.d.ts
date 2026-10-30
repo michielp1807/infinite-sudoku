@@ -2,9 +2,9 @@
 /* eslint-disable */
 
 /**
- * Generate a solved sudoku based on random input data
+ * Generate a solved sudoku, deterministically based on the given seed
  */
-export function generate(n: number, m: number, make_puzzle: boolean): Uint8Array;
+export function generate(n: number, m: number, make_puzzle: boolean, seed: number): Uint8Array;
 
 export function get_cell_index(n: number, m: number, sx: number, sy: number, scx: number, scy: number): number;
 
@@ -14,7 +14,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly generate: (a: number, b: number, c: number) => [number, number];
+    readonly generate: (a: number, b: number, c: number, d: number) => [number, number];
     readonly get_cell_index: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
     readonly mark_errors: (a: number, b: number, c: number, d: number) => [number, number];
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
