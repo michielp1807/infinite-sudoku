@@ -16,6 +16,11 @@ uniform float u_finished_animation;
 
 const float THIRD = 1.0 / 3.0;
 
+// Cell data layout, also used in src/sudokus.rs and assets/main.js
+const int VALUE_MASK = 15;
+const int USER_ENTERED = 16;
+const int ERROR = 32;
+
 uniform vec3 col_num;
 uniform vec3 col_selected_num;
 uniform vec3 col_cell;
@@ -110,11 +115,11 @@ void main() {
 	float sudoku_index = sudoku_coord.x + sudoku_coord.y * u_world_size.x;
 	sudoku_index /= u_world_size.x * u_world_size.y - 1.0;
 	int cell_data = int(255.0 * texture(u_sudoku, vec2(index / (7.0 * 9.0 - 1.0), sudoku_index)));
-	bool user_entered = (cell_data & 16) > 0;
-	bool number_error = (cell_data & 32) > 0;
+	bool user_entered = (cell_data & USER_ENTERED) > 0;
+	bool number_error = (cell_data & ERROR) > 0;
 	color = mix(color, col_error, 0.6 * float(number_error));
 
-	int number = cell_data & 15;
+	int number = cell_data & VALUE_MASK;
 	vec2 num_block_uv = (mod(v_uv / 3.0, 1.0) - 0.5) * 1.01 + 0.5; // slightly scale down blocks to account for thicker border
 	vec2 num_uv = mod(num_block_uv * 3.0, 1.0) * THIRD;
 	num_uv += vec2(THIRD * mod(float(number - 1), 3.0), THIRD * float((number - 1) / 3));

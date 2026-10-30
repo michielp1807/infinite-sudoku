@@ -1,6 +1,11 @@
 import init, { generate, get_cell_index, mark_errors } from "../pkg/infinite_sudoku.js";
 import glSetup from "./webgl.js";
 
+// Cell data layout, also used in src/sudokus.rs and assets/shader.frag
+const VALUE_MASK = 15;
+const USER_ENTERED = 16;
+const ERROR = 32;
+
 const canvas = document.getElementsByTagName("canvas")[0];
 const [_, gl] = await Promise.all([init(), glSetup(canvas)]);
 
@@ -194,13 +199,13 @@ function updateSelectedValue() {
         numpad_container.classList.add("disabled");
         return;
     }
-    if ((data[i] & 16) != 16 && (data[i] & 15) != 0) {
+    if ((data[i] & USER_ENTERED) == 0 && (data[i] & VALUE_MASK) != 0) {
         // constant value
         numpad_container.classList.add("disabled");
     } else {
         numpad_container.classList.remove("disabled");
     }
-    u_selected_value.set(data[i] & 15);
+    u_selected_value.set(data[i] & VALUE_MASK);
 }
 
 /**
@@ -214,16 +219,16 @@ function fillSelectedCell(num) {
         return;
     }
 
-    if ((data[i] & 16) != 16 && (data[i] & 15) != 0) {
+    if ((data[i] & USER_ENTERED) == 0 && (data[i] & VALUE_MASK) != 0) {
         console.log("cannot edit constant value", data[i]);
         return;
     }
 
-    data[i] = (num & 15) + 16; // user-specified flag
+    data[i] = (num & VALUE_MASK) | USER_ENTERED;
 
     data = mark_errors(data, n, m);
 
-    const is_finished = data.every((v) => (v & 15) != 0 && (v & 32) == 0);
+    const is_finished = data.every((v) => (v & VALUE_MASK) != 0 && (v & ERROR) == 0);
     if (is_finished) {
         console.log("Finished!");
         finished_time = performance.now();

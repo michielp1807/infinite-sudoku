@@ -1,5 +1,13 @@
 #![allow(dead_code)] // for development, go away annoying squiggly lines
 
+// Cell data layout, also used in assets/main.js and assets/shader.frag
+/// Mask for the cell value (0 for empty, 1 to 9 otherwise)
+pub const VALUE_MASK: u8 = 15;
+/// Bit flag for values entered by the user
+pub const USER_ENTERED: u8 = 16;
+/// Bit flag for values that conflict with another value
+pub const ERROR: u8 = 32;
+
 /// Bitmap of seen values
 struct Seen(u16);
 
@@ -36,7 +44,7 @@ impl<'a, T: Iterator<Item = usize>> Region<'a, T> {
     pub fn validate(self, partial: bool) -> bool {
         let mut seen = Seen::new();
         for i in self.1 {
-            let value = self.0.cells[i] & 15;
+            let value = self.0.cells[i] & VALUE_MASK;
             if partial && value == 0 {
                 continue;
             }
@@ -52,7 +60,7 @@ impl<'a, T: Iterator<Item = usize>> Region<'a, T> {
     pub fn has_duplicate_value(self, value: u8) -> bool {
         let mut seen = false;
         for i in self.1 {
-            if (self.0.cells[i] & 15) == value {
+            if (self.0.cells[i] & VALUE_MASK) == value {
                 if seen {
                     return true;
                 } else {
@@ -396,7 +404,7 @@ impl SudokuGrid {
 
     /// Check if the cell at index i is problematic
     pub fn cell_is_problematic(&self, sudoku_coords: Coords, i: usize) -> bool {
-        let value = self.cells[i] & 15;
+        let value = self.cells[i] & VALUE_MASK;
         let sudoku = self.sudoku(sudoku_coords);
         self.block_indexes_for(sudoku, i).any(|block| {
             self.row_for(sudoku, block, i).has_duplicate_value(value)
@@ -535,17 +543,17 @@ impl SudokuGrid {
         for i in 0..self.cells.len() {
             let (s1, s2) = self.sudokus_at_index(i);
 
-            if self.cells[i] & 15 == 0 {
-                self.cells[i] &= !32; // not error
+            if self.cells[i] & VALUE_MASK == 0 {
+                self.cells[i] &= !ERROR;
                 continue;
             }
 
             if self.cell_is_problematic(s1, i)
                 || s2.is_some_and(|s2| self.cell_is_problematic(s2, i))
             {
-                self.cells[i] |= 32; // error
+                self.cells[i] |= ERROR;
             } else {
-                self.cells[i] &= !32; // not error
+                self.cells[i] &= !ERROR;
             }
         }
     }
@@ -924,35 +932,36 @@ mod tests {
     fn mark_errors() {
         let mut sg = SudokuGrid::new(1, 1);
 
-        sg.cells[37] = 16; // user-entered 0
+        sg.cells[37] = 0 | USER_ENTERED;
         let mut expected = sg.cells.clone();
         sg.mark_errors();
         assert_eq!(sg.cells, expected); // unchanged, because everything is 0
 
-        sg.cells[37] = 32; // 0 error
-        sg.cells[42] = 32 + 16; // user-entered 0 error
+        // remove 0 errors
+        sg.cells[37] = 0 | ERROR;
+        sg.cells[42] = 0 | ERROR | USER_ENTERED;
         sg.mark_errors();
-        expected[37] = 0; // remove 0 errors
-        expected[42] = 16;
+        expected[37] = 0;
+        expected[42] = 0 | USER_ENTERED;
         assert_eq!(sg.cells, expected);
 
         // two of the same number in the same column
         sg.cells[0] = 4;
-        sg.cells[2 * 9] = 4 + 16;
+        sg.cells[2 * 9] = 4 | USER_ENTERED;
         sg.mark_errors();
-        expected[0] = 4 + 32;
-        expected[2 * 9] = 4 + 16 + 32;
+        expected[0] = 4 | ERROR;
+        expected[2 * 9] = 4 | USER_ENTERED | ERROR;
         assert_eq!(sg.cells, expected);
 
         // two of the same number in the same block
         sg.cells[0] = 6;
-        sg.cells[1] = 6 + 16;
-        sg.cells[7] = 7 + 16; // random other number in block should stay the same
+        sg.cells[1] = 6 | USER_ENTERED;
+        sg.cells[7] = 7 | USER_ENTERED; // random other number in block should stay the same
         sg.mark_errors();
-        expected[0] = 6 + 32;
-        expected[1] = 6 + 16 + 32;
-        expected[7] = 7 + 16;
-        expected[2 * 9] = 4 + 16;
+        expected[0] = 6 | ERROR;
+        expected[1] = 6 | USER_ENTERED | ERROR;
+        expected[7] = 7 | USER_ENTERED;
+        expected[2 * 9] = 4 | USER_ENTERED;
         assert_eq!(sg.cells, expected);
 
         sg.mark_errors(); // should remain stable
@@ -968,10 +977,10 @@ mod tests {
         // two of the same number in column 7: middle right block and bottom right block
         let middle_right = s.block_start[MIDDLE_RIGHT_BLOCK] + 4;
         let bottom_right = s.block_start[BOTTOM_RIGHT_BLOCK] + 7;
-        sg.cells[middle_right] = 5 + 16;
-        sg.cells[bottom_right] = 5 + 16;
+        sg.cells[middle_right] = 5 | USER_ENTERED;
+        sg.cells[bottom_right] = 5 | USER_ENTERED;
         sg.mark_errors();
-        assert_eq!(sg.cells[middle_right], 5 + 16 + 32);
-        assert_eq!(sg.cells[bottom_right], 5 + 16 + 32);
+        assert_eq!(sg.cells[middle_right], 5 | USER_ENTERED | ERROR);
+        assert_eq!(sg.cells[bottom_right], 5 | USER_ENTERED | ERROR);
     }
 }
