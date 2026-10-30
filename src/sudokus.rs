@@ -314,31 +314,47 @@ impl SudokuGrid {
     }
 
     pub fn block_index_for(&self, sudoku: &Sudoku, i: usize) -> usize {
-        for (block, start) in sudoku.block_start.iter().enumerate() {
-            if i >= *start && i < start + 9 {
-                return block;
-            }
-        }
-        panic!("Index {i} not found in sudoku {sudoku:?}");
+        self.block_indexes_for(sudoku, i)
+            .next()
+            .unwrap_or_else(|| panic!("Index {i} not found in sudoku {sudoku:?}"))
     }
 
-    /// Get row for cell index
-    pub fn row_for(&self, sudoku: &Sudoku, i: usize) -> Region<'_, impl Iterator<Item = usize>> {
-        let block = self.block_index_for(sudoku, i);
+    /// Get all blocks of the sudoku containing cell index i
+    ///
+    /// In 1xm and nx1 grids a sudoku overlaps itself, so a cell can be in two of its blocks
+    pub fn block_indexes_for<'b>(
+        &self,
+        sudoku: &'b Sudoku,
+        i: usize,
+    ) -> impl Iterator<Item = usize> + use<'b> {
+        sudoku
+            .block_start
+            .iter()
+            .enumerate()
+            .filter(move |(_, &start)| i >= start && i < start + 9)
+            .map(|(block, _)| block)
+    }
+
+    /// Get row for cell index in the given block
+    pub fn row_for(
+        &self,
+        sudoku: &Sudoku,
+        block: usize,
+        i: usize,
+    ) -> Region<'_, impl Iterator<Item = usize>> {
         let row = (i % 9) / 3 + block / 3 * 3;
         self.row(sudoku, row)
     }
 
-    /// Get column for cell index
-    pub fn column_for(&self, sudoku: &Sudoku, i: usize) -> Region<'_, impl Iterator<Item = usize>> {
-        let block = self.block_index_for(sudoku, i);
+    /// Get column for cell index in the given block
+    pub fn column_for(
+        &self,
+        sudoku: &Sudoku,
+        block: usize,
+        i: usize,
+    ) -> Region<'_, impl Iterator<Item = usize>> {
         let column = i % 3 + (block % 3) * 3;
         self.column(sudoku, column)
-    }
-
-    /// Get block for cell index
-    pub fn block_for(&self, sudoku: &Sudoku, i: usize) -> Region<'_, impl Iterator<Item = usize>> {
-        self.block(sudoku, self.block_index_for(sudoku, i))
     }
 
     pub fn set_block(&mut self, sudoku: &Sudoku, i: usize, values: impl Iterator<Item = u8>) {
@@ -382,9 +398,11 @@ impl SudokuGrid {
     pub fn cell_is_problematic(&self, sudoku_coords: Coords, i: usize) -> bool {
         let value = self.cells[i] & 15;
         let sudoku = self.sudoku(sudoku_coords);
-        self.row_for(sudoku, i).has_duplicate_value(value)
-            || self.column_for(sudoku, i).has_duplicate_value(value)
-            || self.block_for(sudoku, i).has_duplicate_value(value)
+        self.block_indexes_for(sudoku, i).any(|block| {
+            self.row_for(sudoku, block, i).has_duplicate_value(value)
+                || self.column_for(sudoku, block, i).has_duplicate_value(value)
+                || self.block(sudoku, block).has_duplicate_value(value)
+        })
     }
 
     pub fn sudoku_at_index(&self, i: usize) -> Coords {
@@ -939,5 +957,21 @@ mod tests {
 
         sg.mark_errors(); // should remain stable
         assert_eq!(sg.cells, expected);
+    }
+
+    #[test]
+    fn mark_errors_self_overlapping() {
+        // in a 1x1 grid, the bottom right block is also the top left block
+        let mut sg = SudokuGrid::new(1, 1);
+        let s = sg.sudoku((0, 0)).clone();
+
+        // two of the same number in column 7: middle right block and bottom right block
+        let middle_right = s.block_start[MIDDLE_RIGHT_BLOCK] + 4;
+        let bottom_right = s.block_start[BOTTOM_RIGHT_BLOCK] + 7;
+        sg.cells[middle_right] = 5 + 16;
+        sg.cells[bottom_right] = 5 + 16;
+        sg.mark_errors();
+        assert_eq!(sg.cells[middle_right], 5 + 16 + 32);
+        assert_eq!(sg.cells[bottom_right], 5 + 16 + 32);
     }
 }
